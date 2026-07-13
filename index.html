@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DiskOS V1.0</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <canvas id="monitor"></canvas>
+    
+    <input type="text" id="mobile-keyboard-trap" class="hidden-trap" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false">
+    <input type="file" id="disk-loader" class="hidden-trap" accept=".disk,.diskCODE,.diskUI,.txt">
+
+    <div id="os-menu" class="hidden">
+        <div class="menu-title">SYS_MENU</div>
+        <button id="btn-copy">COPY ALL CODE</button>
+        <button id="btn-paste">PASTE FROM CLIPBOARD</button>
+        <button id="btn-close">CANCEL</button>
+    </div>
+
+    <script src="os_parser.js"></script>
+    <script src="os_kernel.js"></script>
+</body>
+</html>
