@@ -78,15 +78,11 @@ const Kernel = {
         let finalFilename = filename;
         let finalPayload = payload;
 
-        // THE ROM COMPILER
         if (filename.endsWith(".diskDIR")) {
             finalFilename = filename.replace(".diskDIR", ".diskROM");
             finalPayload = "TYPE: diskROM\nMOUNT: " + filename + "\nCOMPATIBILITY: V1.8\n---\n";
-            
-            // Step 1: Pack the Directory list itself
             finalPayload += "===FILE: " + filename + "===\n" + payload + "\n";
             
-            // Step 2: Loop through the Directory list and pack every connected file
             let lines = payload.split('\n');
             let isPayload = false;
             for (let i = 0; i < lines.length; i++) {
@@ -113,7 +109,6 @@ const Kernel = {
     },
 
     processImport: function(content, filename) {
-        // ROM UNPACKER LOGIC
         if (content.toUpperCase().startsWith("TYPE: DISKROM")) {
             Parser.printLine("BURNING ROM TO VIRTUAL DRIVE...");
             
@@ -125,7 +120,6 @@ const Kernel = {
                 }
             }
 
-            // Split by file tags and save to virtual drive
             let parts = content.split(/===FILE:\s*(.+?)===/);
             for (let i = 1; i < parts.length; i += 2) {
                 let fName = parts[i].trim();
@@ -149,7 +143,6 @@ const Kernel = {
                 Parser.cursorY--;
             }
         } 
-        // STANDARD FILE IMPORT
         else {
             this.virtualSave(filename, content);
             Parser.printLine("IMPORTED " + filename + " TO VIRTUAL DRIVE.");
