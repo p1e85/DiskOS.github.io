@@ -193,9 +193,14 @@
         // ==========================================
         // TEXTAREA INPUT AND NATIVE PASTE
         // ==========================================
-        overlay.addEventListener('paste', (e) => {
-            e.preventDefault();
-            let pasteText = (e.clipboardData || window.clipboardData).getData('text');
+        // Ensure we never lose focus on the overlay
+overlay.addEventListener('blur', () => {
+    // If the keyboard is meant to be open, force it back
+    if (document.body.classList.contains('typing-mode')) {
+        setTimeout(() => overlay.focus({ preventScroll: true }), 50);
+    }
+});
+
             Parser.pasteFromClipboard(pasteText);
             overlay.value = ""; // Clear buffer
         });
@@ -233,6 +238,16 @@
                 reader.readAsText(file);
             }
         });
+
+// Force the invisible textarea to maintain focus at all times
+function ensureFocus() {
+    if (document.activeElement !== overlay) {
+        overlay.focus({ preventScroll: true });
+    }
+}
+// Run this check every 500ms
+setInterval(ensureFocus, 500);
+
 
         // ==========================================
         // MAIN RENDER LOOP (60 FPS)
