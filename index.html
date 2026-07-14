@@ -160,7 +160,6 @@
 
         // MOBILE TOUCH
         canvas.addEventListener('touchstart', (e) => { 
-            // Only block native behavior (like pinch/zoom) if the pad is loaded
             if (document.body.classList.contains('pad-active')) {
                 e.preventDefault(); 
             }
@@ -168,7 +167,6 @@
             handlePointer(e, true); 
         }, {passive: false});
         
-        window.addEventListener('touchend', (e) => Parser.setTouchState(0, Parser.touchX, Parser.touchY));
         canvas.addEventListener('touchmove', (e) => { 
             if (document.body.classList.contains('pad-active')) {
                 e.preventDefault(); 
@@ -176,7 +174,19 @@
             if (Parser.touchActive) handlePointer(e, true); 
         }, {passive: false});
 
+        // THE MAGIC GHOST CLICK KILLER
+        canvas.addEventListener('touchend', (e) => {
+            e.preventDefault(); 
+            mobileInput.focus(); 
+        }, {passive: false});
+
+        window.addEventListener('touchend', (e) => { 
+            Parser.setTouchState(0, Parser.touchX, Parser.touchY); 
+        });
+
+        // ==========================================
         // INPUT EVENT ROUTING
+        // ==========================================
         mobileInput.addEventListener('input', (e) => {
             let val = e.target.value;
             if (val.length > 0) {
