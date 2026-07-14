@@ -494,17 +494,60 @@ const Parser = {
         }
     },
 
-    processFileContent: function(fileContent, filename) {
+   processFileContent: function(fileContent, filename) {
         this.printLine("LOADING " + filename + "...");
         let lines = fileContent.split('\n');
         
+        // 1. Detect File Type
         let fileType = "diskCODE"; 
         for (let i = 0; i < Math.min(5, lines.length); i++) {
-            if (lines[i].toUpperCase().startsWith("TYPE: DISKGUI")) {
-                fileType = "diskGUI";
-            }
+            if (lines[i].toUpperCase().startsWith("TYPE: DISKGUI")) fileType = "diskGUI";
+            if (lines[i].toUpperCase().startsWith("TYPE: DISKPAD")) fileType = "diskPAD";
         }
 
+        // ==========================================
+        // 2. PARSE .diskPAD (THE GAMEPAD)
+        // ==========================================
+        if (fileType === "diskPAD") {
+            const padContainer = document.getElementById('gamepad');
+            const padLeft = document.getElementById('pad-left');
+            const padRight = document.getElementById('pad-right');
+            
+            padLeft.innerHTML = '';
+            padRight.innerHTML = '';
+            
+            let itemsAdded = 0;
+
+            for (let i = 0; i < lines.length; i++) {
+                let line = lines[i].replace(/[\u200B-\u200D\uFEFF]/g, '').trim();
+                
+                if (line.startsWith("DPAD: HORIZONTAL")) {
+                    padLeft.innerHTML += `<div class="btn btn-dpad" onmousedown="Parser.setKeyState('ArrowLeft', true)" onmouseup="Parser.setKeyState('ArrowLeft', false)" ontouchstart="Parser.setKeyState('ArrowLeft', true)" ontouchend="Parser.setKeyState('ArrowLeft', false)">◀</div>`;
+                    padLeft.innerHTML += `<div class="btn btn-dpad" onmousedown="Parser.setKeyState('ArrowRight', true)" onmouseup="Parser.setKeyState('ArrowRight', false)" ontouchstart="Parser.setKeyState('ArrowRight', true)" ontouchend="Parser.setKeyState('ArrowRight', false)">▶</div>`;
+                    itemsAdded++;
+                } 
+                else if (line.startsWith("BTN: ")) {
+                    let parts = line.split(" ");
+                    let label = parts[1] || "A";
+                    let mappedKey = parts[2] || "SPACE";
+                    let sizeClass = (parts[3] && parts[3] === "SMALL") ? "btn-small" : "btn-action";
+                    
+                    if (mappedKey === "SPACE") mappedKey = " ";
+                    
+                    padRight.innerHTML += `<div class="btn ${sizeClass}" onmousedown="Parser.setKeyState('${mappedKey}', true)" onmouseup="Parser.setKeyState('${mappedKey}', false)" ontouchstart="Parser.setKeyState('${mappedKey}', true)" ontouchend="Parser.setKeyState('${mappedKey}', false)">${label}</div>`;
+                    itemsAdded++;
+                }
+            }
+            
+            padContainer.style.display = 'flex';
+            this.printLine("REGISTERED " + itemsAdded + " PAD ELEMENTS.");
+            this.printLine("READY.");
+            return; 
+        }
+
+        // ==========================================
+        // 3. PARSE .diskGUI (THE MENUS)
+        // ==========================================
         if (fileType === "diskGUI") {
             this.customMenus = {};
             let currentMenu = null;
@@ -524,6 +567,9 @@ const Parser = {
             return; 
         }
 
+        // ==========================================
+        // 4. PARSE .diskCODE (STANDARD CODE)
+        // ==========================================
         let isPayload = false;
         this.textBuffer = []; 
         let linesAdded = 0;
