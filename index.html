@@ -2,24 +2,209 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DiskOS V1.0</title>
-    <link rel="stylesheet" href="style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DiskOS V1.5</title>
+    <style>
+        :root {
+            --bg-color: #050505;
+            --crt-border: #1a1a1a;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: monospace;
+            overflow: hidden;
+            touch-action: none; /* Prevents mobile scrolling */
+        }
+
+        #monitor {
+            position: relative;
+            background-color: #000;
+            border: 24px solid var(--crt-border);
+            border-radius: 16px;
+            box-shadow: 0 0 50px rgba(0,0,0,0.8), inset 0 0 10px #000;
+            overflow: hidden;
+        }
+
+        /* 64 columns x 32 rows. We scale it up by 10x for visibility */
+        canvas {
+            display: block;
+            width: 640px; 
+            height: 320px;
+            image-rendering: pixelated;
+        }
+
+        /* Classic CRT Scanline Overlay */
+        .scanlines {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(
+                to bottom,
+                rgba(255,255,255,0),
+                rgba(255,255,255,0) 50%,
+                rgba(0,0,0,0.1) 50%,
+                rgba(0,0,0,0.1)
+            );
+            background-size: 100% 4px;
+            pointer-events: none;
+        }
+
+        /* Subtle screen curvature and glow */
+        .glass-glare {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            box-shadow: inset 0 0 40px rgba(255, 176, 0, 0.1);
+            border-radius: 4px;
+            pointer-events: none;
+        }
+
+        @media (max-width: 700px) {
+            #monitor {
+                border-width: 10px;
+                transform: scale(0.95);
+            }
+        }
+    </style>
 </head>
 <body>
-    <canvas id="monitor"></canvas>
-    
-    <input type="text" id="mobile-keyboard-trap" class="hidden-trap" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false">
-    <input type="file" id="disk-loader" class="hidden-trap" accept=".disk,.diskCODE,.diskUI,.txt">
 
-    <div id="os-menu" class="hidden">
-        <div class="menu-title">SYS_MENU</div>
-        <button id="btn-copy">COPY ALL CODE</button>
-        <button id="btn-paste">PASTE FROM CLIPBOARD</button>
-        <button id="btn-close">CANCEL</button>
+    <div id="monitor">
+        <canvas id="screen" width="640" height="320"></canvas>
+        <div class="scanlines"></div>
+        <div class="glass-glare"></div>
     </div>
 
-    <script src="os_parser.js"></script>
     <script src="os_kernel.js"></script>
+    <script src="os_parser.js"></script>
+
+    <script>
+        const canvas = document.getElementById('screen');
+        const ctx = canvas.getContext('2d');
+        
+        const CELL_WIDTH = 10;
+        const CELL_HEIGHT = 10;
+        
+        let blinkTimer = 0;
+        let cursorVisible = true;
+
+        // ==========================================
+        // KEYBOARD I/O
+        // ==========================================
+        window.addEventListener('keydown', (e) => {
+            // Prevent default scrolling for Space and Arrows
+            if(["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.code)) {
+                e.preventDefault();
+            }
+            Parser.handleKey(e.key);
+            Parser.setKeyState(e.key, true);
+        });
+
+        window.addEventListener('keyup', (e) => {
+            Parser.setKeyState(e.key, false);
+        });
+
+        // ==========================================
+        // MOUSE / TOUCH I/O
+        // ==========================================
+        function handlePointer(e, isActive) {
+            const rect = canvas.getBoundingClientRect();
+            // Get coordinates relative to canvas scaling
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            
+            let clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            let clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+            let x = (clientX - rect.left) * scaleX;
+            let y = (clientY - rect.top) * scaleY;
+
+            // Convert raw pixels to 64x32 grid coordinates
+            let gridX = Math.floor(x / CELL_WIDTH);
+            let gridY = Math.floor(y / CELL_HEIGHT);
+
+            Parser.setTouchState(isActive ? 1 : 0, gridX, gridY);
+        }
+
+        canvas.addEventListener('mousedown', (e) => handlePointer(e, true));
+        window.addEventListener('mouseup', (e) => Parser.setTouchState(0, Parser.touchX, Parser.touchY));
+        canvas.addEventListener('mousemove', (e) => { if (Parser.touchActive) handlePointer(e, true); });
+
+        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); handlePointer(e, true); }, {passive: false});
+        window.addEventListener('touchend', (e) => Parser.setTouchState(0, Parser.touchX, Parser.touchY));
+        canvas.addEventListener('touchmove', (e) => { e.preventDefault(); if (Parser.touchActive) handlePointer(e, true); }, {passive: false});
+
+
+        // ==========================================
+        // MAIN RENDER LOOP (60 FPS)
+        // ==========================================
+        function render() {
+            // 1. Execute the next step of code if running
+            if (Parser.isRunning) {
+                // Run a batch of instructions per frame for speed (simulate CPU cycles)
+                for(let i=0; i < 20; i++) {
+                    if(!Parser.isRunning || Parser.waitingForTimer) break;
+                    Parser.executeStep();
+                }
+            }
+
+            // 2. Clear Screen
+            ctx.fillStyle = "#000000";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 3. Draw VRAM
+            ctx.font = "10px monospace";
+            ctx.textBaseline = "top";
+
+            for (let y = 0; y < Parser.rows; y++) {
+                for (let x = 0; x < Parser.cols; x++) {
+                    let idx = Parser.getIndex(x, y);
+                    let cell = Parser.vram[idx];
+
+                    // Draw Background
+                    if (cell.bg !== '#000000') {
+                        ctx.fillStyle = cell.bg;
+                        ctx.fillRect(x * CELL_WIDTH, y * CELL_HEIGHT, CELL_WIDTH, CELL_HEIGHT);
+                    }
+
+                    // Draw Character
+                    if (cell.char !== ' ') {
+                        ctx.fillStyle = cell.fg;
+                        ctx.fillText(cell.char, x * CELL_WIDTH, y * CELL_HEIGHT);
+                    }
+                }
+            }
+
+            // 4. Draw Cursor (if not running a program)
+            blinkTimer++;
+            if (blinkTimer > 30) {
+                cursorVisible = !cursorVisible;
+                blinkTimer = 0;
+            }
+
+            if (!Parser.isRunning && cursorVisible) {
+                ctx.fillStyle = "#FFB000"; // Amber cursor
+                ctx.fillRect(Parser.cursorX * CELL_WIDTH, Parser.cursorY * CELL_HEIGHT, CELL_WIDTH, CELL_HEIGHT);
+                
+                // If there is text under the cursor, invert it
+                let idx = Parser.getIndex(Parser.cursorX, Parser.cursorY);
+                if (Parser.vram[idx] && Parser.vram[idx].char !== ' ') {
+                    ctx.fillStyle = "#000000";
+                    ctx.fillText(Parser.vram[idx].char, Parser.cursorX * CELL_WIDTH, Parser.cursorY * CELL_HEIGHT);
+                }
+            }
+
+            requestAnimationFrame(render);
+        }
+
+        // Start the engine
+        render();
+    </script>
 </body>
 </html>
