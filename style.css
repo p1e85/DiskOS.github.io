@@ -81,3 +81,48 @@ canvas {
     color: #000;
 }
 
+/* GAMEPAD STYLES */
+#gamepad {
+    display: none; /* Hidden by default */
+    width: 640px;
+    height: 120px;
+    margin-top: 10px;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 20px;
+    box-sizing: border-box;
+    user-select: none;
+}
+
+.pad-section {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+
+.btn {
+    background-color: #333;
+    border: 4px solid #1a1a1a;
+    border-radius: 50%;
+    color: #FFB000;
+    font-weight: bold;
+    font-size: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 4px 0 #111, inset 0 -4px 10px rgba(0,0,0,0.5);
+    cursor: pointer;
+}
+
+.btn:active {
+    transform: translateY(4px);
+    box-shadow: 0 0 0 #111, inset 0 4px 10px rgba(0,0,0,0.8);
+}
+
+.btn-dpad { width: 60px; height: 60px; border-radius: 10px; }
+.btn-action { width: 70px; height: 70px; }
+.btn-small { width: 45px; height: 45px; font-size: 12px; background-color: #522; }
+
+@media (max-width: 700px) {
+    #gamepad { width: 100%; padding: 0 10px; }
+}
