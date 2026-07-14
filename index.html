@@ -9,8 +9,8 @@
 
         body, html {
             margin: 0; padding: 0; width: 100%; 
-            height: 100%; /* Fallback */
-            height: 100dvh; /* Tracks actual visible screen, ignoring mobile UI bars */
+            height: 100%; 
+            height: 100dvh; 
             background-color: var(--bg-color); display: flex;
             flex-direction: column; justify-content: center; align-items: center;
             font-family: monospace; overflow: hidden; touch-action: none; 
@@ -42,10 +42,12 @@
             box-shadow: inset 0 0 40px rgba(255, 176, 0, 0.1); border-radius: 4px; pointer-events: none;
         }
 
-        /* HIDDEN MOBILE INPUT */
+        /* HIDDEN MOBILE INPUT (Now safely positioned inside the monitor) */
         #mobile-keyboard {
-            position: fixed; top: 0; left: 0; width: 1px; height: 1px; 
-            opacity: 0.01; pointer-events: none; z-index: -1; border: none; outline: none;
+            position: absolute; top: 0; left: 0; 
+            width: 10px; height: 10px; 
+            opacity: 0; pointer-events: none; z-index: -1; 
+            border: none; outline: none;
         }
 
         /* GAMEPAD STYLES */
@@ -69,9 +71,7 @@
         .btn-action { width: 70px; height: 70px; }
         .btn-small { width: 45px; height: 45px; font-size: 12px; background-color: #522; }
 
-        /* =======================================
-           VERTICAL MOBILE EXCEPTIONS 
-           ======================================= */
+        /* VERTICAL MOBILE EXCEPTIONS */
         @media (max-width: 700px) and (orientation: portrait) {
             #monitor { border-width: 10px; max-width: 96vw; }
             #gamepad { max-width: 96vw; padding: 0 10px; }
@@ -89,9 +89,8 @@
 </head>
 <body>
 
-    <input type="text" id="mobile-keyboard" autocorrect="off" autocapitalize="none" spellcheck="false" autocomplete="off">
-
     <div id="monitor">
+        <input type="text" id="mobile-keyboard" autocorrect="off" autocapitalize="none" spellcheck="false" autocomplete="off">
         <canvas id="screen" width="640" height="320"></canvas>
         <div class="scanlines"></div>
         <div class="glass-glare"></div>
@@ -146,19 +145,29 @@
             Parser.setTouchState(isActive ? 1 : 0, gridX, gridY);
         }
 
-        canvas.addEventListener('click', () => { mobileInput.focus(); });
-        canvas.addEventListener('mousedown', (e) => handlePointer(e, true));
+        // DESKTOP CLICKS
+        canvas.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            mobileInput.focus();
+            handlePointer(e, true);
+        });
         window.addEventListener('mouseup', (e) => Parser.setTouchState(0, Parser.touchX, Parser.touchY));
         canvas.addEventListener('mousemove', (e) => { if (Parser.touchActive) handlePointer(e, true); });
 
+        // MOBILE TOUCH (THE FIX IS HERE)
         canvas.addEventListener('touchstart', (e) => { 
+            e.preventDefault(); // <-- THIS STOPS THE GHOST CLICK!
             mobileInput.focus(); 
             handlePointer(e, true); 
         }, {passive: false});
         
         window.addEventListener('touchend', (e) => Parser.setTouchState(0, Parser.touchX, Parser.touchY));
-        canvas.addEventListener('touchmove', (e) => { e.preventDefault(); if (Parser.touchActive) handlePointer(e, true); }, {passive: false});
+        canvas.addEventListener('touchmove', (e) => { 
+            e.preventDefault(); 
+            if (Parser.touchActive) handlePointer(e, true); 
+        }, {passive: false});
 
+        // INPUT EVENT ROUTING
         mobileInput.addEventListener('input', (e) => {
             let val = e.target.value;
             if (val.length > 0) {
