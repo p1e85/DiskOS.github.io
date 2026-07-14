@@ -1,323 +1,143 @@
-const canvas = document.getElementById('monitor');
-const ctx = canvas.getContext('2d');
-
-const COLS = Parser.cols;
-const ROWS = Parser.rows;
-const CELL_WIDTH = 16;
-const CELL_HEIGHT = 24;
-
-canvas.width = COLS * CELL_WIDTH;
-canvas.height = ROWS * CELL_HEIGHT;
-
-let lastTime = 0;
-let targetFPS = 60;
-let fpsInterval = 1000 / targetFPS;
-let cursorBlink = true;
-let frameCount = 0;
-
-const hiddenInput = document.getElementById('mobile-keyboard-trap');
-
-if (window.visualViewport) {
-    window.visualViewport.addEventListener("resize", () => {
-        if (window.matchMedia("(orientation: portrait)").matches) {
-            document.body.style.height = window.visualViewport.height + "px";
-        } else {
-            document.body.style.height = "100dvh";
-        }
-    });
-}
-
-hiddenInput.addEventListener('focus', () => document.body.classList.add('keyboard-open'));
-hiddenInput.addEventListener('blur', () => {
-    document.body.classList.remove('keyboard-open');
-    document.body.style.height = "100dvh"; 
-});
-
-window.addEventListener('keydown', (e) => {
-    if (Parser.setKeyState) Parser.setKeyState(e.key, true);
-});
-window.addEventListener('keyup', (e) => {
-    if (Parser.setKeyState) Parser.setKeyState(e.key, false);
-});
-
-function getCanvasCoords(e) {
-    const rect = canvas.getBoundingClientRect();
-    let clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    let clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    let x = Math.floor(((clientX - rect.left) * scaleX) / CELL_WIDTH);
-    let y = Math.floor(((clientY - rect.top) * scaleY) / CELL_HEIGHT);
-    if (x < 0) x = 0; if (x >= COLS) x = COLS - 1;
-    if (y < 0) y = 0; if (y >= ROWS) y = ROWS - 1;
-    return {x, y};
-}
-
-let isMouseDown = false;
-
-window.addEventListener('mousedown', (e) => {
-    if (Parser.isRunning) {
-        isMouseDown = true;
-        let coords = getCanvasCoords(e);
-        if (Parser.setTouchState) Parser.setTouchState(1, coords.x, coords.y);
-    }
-});
-window.addEventListener('mousemove', (e) => {
-    if (Parser.isRunning && isMouseDown) {
-        let coords = getCanvasCoords(e);
-        if (Parser.setTouchState) Parser.setTouchState(1, coords.x, coords.y);
-    }
-});
-window.addEventListener('mouseup', () => {
-    isMouseDown = false;
-    if (Parser.isRunning && Parser.setTouchState) {
-        Parser.setTouchState(0, Parser.touchX, Parser.touchY);
-    }
-});
-
-let touchTimer;
-let isMenuOpen = false;
-let isLongPress = false;
-const osMenu = document.getElementById('os-menu');
-
-function openSysMenu() {
-    isMenuOpen = true;
-    osMenu.classList.remove('hidden');
-    hiddenInput.blur(); 
-}
-
-canvas.addEventListener('touchstart', (e) => {
-    if (e.touches.length >= 3) {
-        Parser.handleKey("Escape");
-        e.preventDefault();
-        return; 
-    }
-    if (Parser.isRunning) {
-        e.preventDefault(); 
-        let coords = getCanvasCoords(e);
-        if (Parser.setTouchState) Parser.setTouchState(1, coords.x, coords.y);
-    } else {
-        if (e.touches.length === 1 && !isMenuOpen) {
-            isLongPress = false;
-            touchTimer = setTimeout(() => {
-                isLongPress = true;
-                openSysMenu();
-            }, 600); 
-        }
-    }
-}, {passive: false});
-
-canvas.addEventListener('touchmove', (e) => {
-    if (Parser.isRunning) {
-        e.preventDefault();
-        let coords = getCanvasCoords(e);
-        if (Parser.setTouchState) Parser.setTouchState(1, coords.x, coords.y);
-    } else {
-        clearTimeout(touchTimer);
-    }
-}, {passive: false});
-
-canvas.addEventListener('touchend', (e) => {
-    if (Parser.isRunning) {
-        e.preventDefault();
-        if (Parser.setTouchState) Parser.setTouchState(0, Parser.touchX, Parser.touchY);
-    } else {
-        clearTimeout(touchTimer);
-        if (!isLongPress && !isMenuOpen && e.touches.length === 0) {
-            hiddenInput.focus();
-        }
-    }
-});
-
-canvas.addEventListener('contextmenu', (e) => {
-    e.preventDefault();
-    if (!Parser.isRunning) openSysMenu();
-});
-canvas.addEventListener('click', () => { 
-    if (!isMenuOpen && !Parser.isRunning) hiddenInput.focus(); 
-});
-
-document.getElementById('btn-close').addEventListener('click', () => {
-    osMenu.classList.add('hidden');
-    isMenuOpen = false;
-});
-
-document.getElementById('btn-copy').addEventListener('click', () => {
-    let code = "";
-    for (let i = 0; i < Parser.textBuffer.length; i++) {
-        code += Parser.textBuffer[i].line + " " + Parser.textBuffer[i].code + "\n";
-    }
-    navigator.clipboard.writeText(code).then(() => {
-        Parser.printLine("CODE COPIED TO CLIPBOARD.");
-        Parser.printLine("READY.");
-    });
-    osMenu.classList.add('hidden');
-    isMenuOpen = false;
-});
-
-document.getElementById('btn-paste').addEventListener('click', () => {
-    navigator.clipboard.readText().then(text => {
-        Parser.pasteFromClipboard(text);
-    }).catch(err => {
-        Parser.printLine("?CLIPBOARD ACCESS DENIED");
-    });
-    osMenu.classList.add('hidden');
-    isMenuOpen = false;
-});
-
-hiddenInput.addEventListener('keydown', (e) => {
-    if (e.key === "Enter" || e.key === "Backspace" || e.key === "Escape") {
-        e.preventDefault(); 
-        Parser.handleKey(e.key);
-    }
-});
-hiddenInput.addEventListener('input', (e) => {
-    let chars = hiddenInput.value;
-    for (let i = 0; i < chars.length; i++) {
-        Parser.handleKey(chars[i]);
-    }
-    hiddenInput.value = "";
-});
-
-// ==========================================
-// NEW KERNEL PERSISTENCE (VIRTUAL DRIVE)
-// ==========================================
-const fileLoader = document.getElementById('disk-loader');
 const Kernel = {
     activeDir: null,
-    
-    // Save to Virtual Drive (Silent)
-    virtualSave: function(filename, content) {
-        localStorage.setItem(filename, content);
+
+    // ==========================================
+    // 1. SYSTEM BOOT SEQUENCE
+    // ==========================================
+    boot: function() {
+        // Give the Parser half a second to draw the startup screen, then check for MASTER
+        setTimeout(() => {
+            if (localStorage.getItem("DiskOS_MASTER.diskDIR")) {
+                Parser.printLine("MASTER.diskDIR DETECTED. AUTO-MOUNTING...");
+                
+                // Simulate the user typing the mount command
+                let cmd = 'MOUNT "MASTER.diskDIR"';
+                for(let i = 0; i < cmd.length; i++) {
+                    Parser.vram[Parser.getIndex(Parser.cursorX, Parser.cursorY)].char = cmd[i];
+                    Parser.cursorX++;
+                }
+                Parser.handleKey('Enter');
+            }
+        }, 500);
+    },
+
+    // ==========================================
+    // 2. VIRTUAL FILE SYSTEM (LOCAL STORAGE)
+    // ==========================================
+    virtualSave: function(filename, payload) {
+        // If we are in a directory, prefix the filename so it stays isolated
+        let key = "DiskOS_" + (this.activeDir ? this.activeDir + "_" : "") + filename;
         
-        // If a directory is mounted, automatically log this file inside it
-        if (this.activeDir && filename !== this.activeDir) {
-            let dirContent = localStorage.getItem(this.activeDir) || "TYPE: diskDIR\n---\n";
-            let lines = dirContent.split('\n');
-            let fileExists = false;
-            for(let i = 0; i < lines.length; i++) {
-                if (lines[i].trim() === filename) fileExists = true;
-            }
-            if (!fileExists) {
-                dirContent += filename + "\n";
-                localStorage.setItem(this.activeDir, dirContent);
-            }
+        // System config files (GUI/DIR) should always save to the root level
+        if (filename.endsWith(".diskDIR") || filename.endsWith(".diskGUI")) {
+             key = "DiskOS_" + filename; 
+        }
+        
+        localStorage.setItem(key, payload);
+        
+        // If saving a normal file while a directory is mounted, update the directory's index
+        if (this.activeDir && !filename.endsWith(".diskDIR") && !filename.endsWith(".diskGUI")) {
+            this.updateDirIndex(this.activeDir, filename);
         }
     },
-    
-    // Load from Virtual Drive (Silent)
+
     virtualLoad: function(filename) {
-        return localStorage.getItem(filename);
+        // Try to load from the active directory first
+        let key = "DiskOS_" + (this.activeDir ? this.activeDir + "_" : "") + filename;
+        let data = localStorage.getItem(key);
+        
+        // If not found, try the root directory (useful for global .diskGUI files)
+        if (!data) {
+            data = localStorage.getItem("DiskOS_" + filename);
+        }
+        return data;
     },
 
-    // Export to Real Device (Physical Download)
-    physicalExport: function(filename, content) {
-        const blob = new Blob([content], { type: 'application/octet-stream' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = filename;
-        document.body.appendChild(a); a.click();
-        document.body.removeChild(a); URL.revokeObjectURL(url);
-    },
-
-    // Import from Real Device (Popup)
-    triggerImport: function() {
-        fileLoader.click();
-    },
-
-    // Mount Directory
+    // ==========================================
+    // 3. WORKSPACE DIRECTORY MANAGEMENT
+    // ==========================================
     mountDir: function(dirname) {
         this.activeDir = dirname;
-        let content = localStorage.getItem(dirname);
-        // Create blank directory if it doesn't exist
-        if (!content) {
-            content = "TYPE: diskDIR\n---\n";
-            localStorage.setItem(dirname, content);
+        let dirData = localStorage.getItem("DiskOS_" + dirname);
+        
+        // If the directory doesn't exist, create an empty one
+        if (!dirData) {
+            dirData = "TYPE: diskDIR\nCOMPATIBILITY: V1.5\n---\n";
+            localStorage.setItem("DiskOS_" + dirname, dirData);
         }
         
+        // Parse the directory list to return to the Parser
         let files = [];
-        let lines = content.split('\n');
+        let lines = dirData.split('\n');
         let isPayload = false;
+        
         for (let i = 0; i < lines.length; i++) {
-            let line = lines[i].replace(/[\u200B-\u200D\uFEFF]/g, '').trim();
+            let line = lines[i].trim();
             if (line === "---") { isPayload = true; continue; }
             if (isPayload && line !== "") files.push(line);
         }
         return files;
+    },
+
+    updateDirIndex: function(dirname, filename) {
+        let dirData = localStorage.getItem("DiskOS_" + dirname) || "TYPE: diskDIR\n---\n";
+        let lines = dirData.split('\n');
+        
+        // Only add the file to the index if it isn't already there
+        if (!lines.includes(filename)) {
+            dirData += filename + "\n";
+            localStorage.setItem("DiskOS_" + dirname, dirData);
+        }
+    },
+
+    // ==========================================
+    // 4. PHYSICAL I/O (BROWSER DOWNLOAD/UPLOAD)
+    // ==========================================
+    physicalExport: function(filename, payload) {
+        const blob = new Blob([payload], { type: "text/plain" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        
+        // Cleanup
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    },
+
+    triggerImport: function() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.diskCODE,.diskGUI,.diskDIR,.lib'; // Accept all our custom extensions
+        
+        input.onchange = e => {
+            const file = e.target.files[0];
+            if (!file) {
+                Parser.printLine("?IMPORT CANCELLED.");
+                Parser.printLine("READY.");
+                return;
+            }
+            
+            const reader = new FileReader();
+            reader.onload = event => {
+                const content = event.target.result;
+                this.virtualSave(file.name, content);
+                
+                // Clear the terminal and simulate loading the file visually
+                Parser.printLine("IMPORTED " + file.name + " TO VIRTUAL DRIVE.");
+                Parser.printLine("READY.");
+                Parser.cursorY--;
+            };
+            reader.readAsText(file);
+        };
+        input.click();
     }
 };
 
-fileLoader.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = function(event) {
-        // Save the imported file to the Virtual Drive, then load it
-        Kernel.virtualSave(file.name, event.target.result);
-        Parser.processFileContent(event.target.result, file.name);
-    };
-    reader.readAsText(file);
-    fileLoader.value = "";
-});
-
-function kernelLoop(timestamp) {
-    requestAnimationFrame(kernelLoop);
-    let deltaTime = timestamp - lastTime;
-    
-    if (deltaTime > fpsInterval) {
-        lastTime = timestamp - (deltaTime % fpsInterval);
-        frameCount++;
-        
-        if (Parser.isRunning) {
-            let cycles = 0;
-            while (Parser.isRunning && !Parser.waitingForKey && !Parser.waitingForTimer && cycles < 1000) {
-                Parser.executeStep();
-                cycles++;
-            }
-        }
-        
-        renderVRAM();
-        renderCursor();
-    }
-}
-
-function renderVRAM() {
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.font = '20px monospace';
-    ctx.textBaseline = 'top';
-
-    for (let y = 0; y < ROWS; y++) {
-        for (let x = 0; x < COLS; x++) {
-            let cell = Parser.vram[Parser.getIndex(x, y)];
-            if (cell.bg !== '#000000') {
-                ctx.fillStyle = cell.bg;
-                ctx.fillRect(x * CELL_WIDTH, y * CELL_HEIGHT, CELL_WIDTH, CELL_HEIGHT);
-            }
-            if (cell.char !== ' ') {
-                ctx.fillStyle = cell.fg;
-                ctx.fillText(cell.char, x * CELL_WIDTH + 2, y * CELL_HEIGHT + 2);
-            }
-        }
-    }
-}
-
-function renderCursor() {
-    if (Parser.isRunning || isMenuOpen) return; 
-    if (frameCount % 30 === 0) cursorBlink = !cursorBlink;
-    if (cursorBlink) {
-        ctx.fillStyle = '#FFB000';
-        ctx.fillRect(Parser.cursorX * CELL_WIDTH, Parser.cursorY * CELL_HEIGHT, CELL_WIDTH, CELL_HEIGHT);
-        let currentCell = Parser.vram[Parser.getIndex(Parser.cursorX, Parser.cursorY)];
-        if (currentCell && currentCell.char !== ' ') {
-            ctx.fillStyle = '#000000';
-            ctx.fillText(currentCell.char, Parser.cursorX * CELL_WIDTH + 2, Parser.cursorY * CELL_HEIGHT + 2);
-        }
-    }
-}
-
-window.addEventListener('click', () => { 
-    if (!isMenuOpen && !Parser.isRunning) hiddenInput.focus(); 
-});
-hiddenInput.focus();
-requestAnimationFrame(kernelLoop);
+// Initialize Kernel boot sequence when the window loads
+window.onload = function() {
+    Kernel.boot();
+};
