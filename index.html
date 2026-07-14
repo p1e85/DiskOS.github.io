@@ -111,7 +111,7 @@
         const ctx = canvas.getContext('2d');
         const mobileInput = document.getElementById('mobile-keyboard');
         
-        const CELL_WIDTH = 10; const CELL_HEIGHT = 10;
+        const CELL_WIDTH = 20; const CELL_HEIGHT = 20;
         let blinkTimer = 0; let cursorVisible = true;
 
         // ==========================================
@@ -229,7 +229,7 @@
             ctx.fillStyle = "#000000";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            ctx.font = "10px monospace";
+            ctx.font = "bold 20px monospace";
             ctx.textBaseline = "top";
 
             for (let y = 0; y < Parser.rows; y++) {
