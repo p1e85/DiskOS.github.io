@@ -22,7 +22,7 @@ DiskOS requires zero dependencies, build steps, or servers.
 3. Type `$FILE` to open the built-in system menu.
 
 ### Create Your First Project
-```text
+
 1. MOUNT "HELLO.diskDIR"
 2. 10 PRINT "HELLO WORLD"
 3. SAVE "MAIN.diskCODE"
