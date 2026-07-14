@@ -31,7 +31,20 @@
             transition: transform 0.2s ease;
         }
 
-        /* Retina scaling */
+        /* THE TRANSPARENT OVERLAY HACK */
+        #mobile-keyboard {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            width: 100%; height: 100%; 
+            opacity: 0.01; z-index: 10; 
+            border: none; outline: none; resize: none;
+            color: transparent; background: transparent;
+        }
+
+        /* Disable the input overlay so the canvas gets touches during gameplay */
+        body.pad-active #mobile-keyboard {
+            pointer-events: none;
+        }
+
         canvas { 
             display: block; width: 100%; height: auto; 
             image-rendering: pixelated; 
@@ -41,19 +54,13 @@
             position: absolute; top: 0; left: 0; right: 0; bottom: 0;
             background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.1));
             background-size: 100% 4px; pointer-events: none;
+            z-index: 5;
         }
 
         .glass-glare {
             position: absolute; top: 0; left: 0; right: 0; bottom: 0;
             box-shadow: inset 0 0 40px rgba(255, 176, 0, 0.1); border-radius: 4px; pointer-events: none;
-        }
-
-        /* HIDDEN MOBILE INPUT */
-        #mobile-keyboard {
-            position: absolute; top: 0; left: 0; 
-            width: 10px; height: 10px; 
-            opacity: 0; pointer-events: none; z-index: -1; 
-            border: none; outline: none;
+            z-index: 5;
         }
 
         /* GAMEPAD STYLES */
@@ -95,7 +102,7 @@
 <body>
 
     <div id="monitor">
-        <input type="text" id="mobile-keyboard" autocorrect="off" autocapitalize="none" spellcheck="false" autocomplete="off">
+        <textarea id="mobile-keyboard" autocorrect="off" autocapitalize="none" spellcheck="false" autocomplete="off"></textarea>
         <canvas id="screen" width="1280" height="640"></canvas>
         <div class="scanlines"></div>
         <div class="glass-glare"></div>
@@ -112,31 +119,27 @@
     <script>
         const canvas = document.getElementById('screen');
         const ctx = canvas.getContext('2d');
-        const mobileInput = document.getElementById('mobile-keyboard');
+        const overlay = document.getElementById('mobile-keyboard');
+        const monitor = document.getElementById('monitor');
         
         const CELL_WIDTH = 20; 
         const CELL_HEIGHT = 20;
-        
         let blinkTimer = 0; 
         let cursorVisible = true;
-
-        // Long-Press Tracking Variables
-        let touchStartTime = 0;
-        let touchStartX = 0;
-        let touchStartY = 0;
-        let isSwipe = false;
 
         // ==========================================
         // MOBILE KEYBOARD TOGGLE
         // ==========================================
-        mobileInput.addEventListener('focus', () => document.body.classList.add('typing-mode'));
-        mobileInput.addEventListener('blur', () => document.body.classList.remove('typing-mode'));
+        overlay.addEventListener('focus', () => document.body.classList.add('typing-mode'));
+        overlay.addEventListener('blur', () => document.body.classList.remove('typing-mode'));
 
         // ==========================================
         // KEYBOARD I/O
         // ==========================================
         window.addEventListener('keydown', (e) => {
-            if(["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.code)) e.preventDefault();
+            if(["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.code)) {
+                if(document.body.classList.contains('pad-active')) e.preventDefault();
+            }
             Parser.handleKey(e.key);
             Parser.setKeyState(e.key, true);
         });
@@ -144,7 +147,7 @@
         window.addEventListener('keyup', (e) => { Parser.setKeyState(e.key, false); });
 
         // ==========================================
-        // MOUSE / TOUCH I/O & MOBILE KEYBOARD
+        // MOUSE / TOUCH I/O ROUTING
         // ==========================================
         function handlePointer(e, isActive) {
             const rect = canvas.getBoundingClientRect();
@@ -161,57 +164,26 @@
             Parser.setTouchState(isActive ? 1 : 0, gridX, gridY);
         }
 
-        // DESKTOP CLICKS
-        canvas.addEventListener('mousedown', (e) => {
-            e.preventDefault();
-            mobileInput.focus();
+        // Catch pointer events on the monitor container
+        monitor.addEventListener('mousedown', (e) => {
+            if (!document.body.classList.contains('pad-active')) overlay.focus();
             handlePointer(e, true);
         });
+        monitor.addEventListener('mousemove', (e) => { if (Parser.touchActive) handlePointer(e, true); });
         window.addEventListener('mouseup', (e) => Parser.setTouchState(0, Parser.touchX, Parser.touchY));
-        canvas.addEventListener('mousemove', (e) => { if (Parser.touchActive) handlePointer(e, true); });
 
-        // MOBILE TOUCH (WITH LONG-PRESS LOGIC)
-        canvas.addEventListener('touchstart', (e) => { 
-            touchStartTime = Date.now();
-            touchStartX = e.touches[0].clientX;
-            touchStartY = e.touches[0].clientY;
-            isSwipe = false;
-
+        monitor.addEventListener('touchstart', (e) => { 
             if (document.body.classList.contains('pad-active')) {
-                e.preventDefault(); 
+                e.preventDefault(); // Lock zoom during gameplay
             }
-            mobileInput.focus(); 
             handlePointer(e, true); 
         }, {passive: false});
         
-        canvas.addEventListener('touchmove', (e) => { 
-            // If the finger moves more than 10 pixels, cancel the long-press paste
-            let dx = Math.abs(e.touches[0].clientX - touchStartX);
-            let dy = Math.abs(e.touches[0].clientY - touchStartY);
-            if (dx > 10 || dy > 10) isSwipe = true;
-
+        monitor.addEventListener('touchmove', (e) => { 
             if (document.body.classList.contains('pad-active')) {
                 e.preventDefault(); 
             }
             if (Parser.touchActive) handlePointer(e, true); 
-        }, {passive: false});
-
-        canvas.addEventListener('touchend', (e) => {
-            e.preventDefault(); // Ghost click killer
-            
-            let touchDuration = Date.now() - touchStartTime;
-            
-            // Custom Long-Press Detection (600ms) for Pasting
-            if (!document.body.classList.contains('pad-active') && !isSwipe && touchDuration > 600) {
-                navigator.clipboard.readText().then(text => {
-                    Parser.pasteFromClipboard(text);
-                }).catch(err => {
-                    Parser.printLine("?CLIPBOARD ACCESS DENIED");
-                    Parser.printLine("READY.");
-                });
-            } else {
-                mobileInput.focus(); 
-            }
         }, {passive: false});
 
         window.addEventListener('touchend', (e) => { 
@@ -219,32 +191,33 @@
         });
 
         // ==========================================
-        // INPUT EVENT ROUTING
+        // TEXTAREA INPUT AND NATIVE PASTE
         // ==========================================
-        mobileInput.addEventListener('input', (e) => {
-            let val = e.target.value;
-            if (val.length > 0) {
-                Parser.handleKey(val.charAt(val.length - 1));
-                e.target.value = "";    
-            }
-        });
-
-        mobileInput.addEventListener('keydown', (e) => {
-            if (e.key === "Enter" || e.key === "Backspace") Parser.handleKey(e.key);
-        });
-
-        // ==========================================
-        // NATIVE PASTE INTERCEPTOR
-        // ==========================================
-        mobileInput.addEventListener('paste', (e) => {
+        overlay.addEventListener('paste', (e) => {
             e.preventDefault();
             let pasteText = (e.clipboardData || window.clipboardData).getData('text');
             Parser.pasteFromClipboard(pasteText);
+            overlay.value = ""; // Clear buffer
         });
 
+        overlay.addEventListener('input', (e) => {
+            let val = e.target.value;
+            if (val.length > 0) {
+                // Only send the last typed character
+                Parser.handleKey(val.charAt(val.length - 1));
+                overlay.value = "";    
+            }
+        });
+
+        overlay.addEventListener('keydown', (e) => {
+            if (e.key === "Enter" || e.key === "Backspace") {
+                e.preventDefault(); // Stop newlines inside the textarea
+                Parser.handleKey(e.key);
+            }
+        });
 
         // ==========================================
-        // DRAG AND DROP INSTALLATION
+        // DRAG AND DROP INSTALLATION (.diskROM)
         // ==========================================
         window.addEventListener('dragover', (e) => {
             e.preventDefault(); 
