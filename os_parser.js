@@ -20,11 +20,16 @@ const Parser = {
 
     isCapturingRaw: false,              
     rawBuffer: [],                      
-    rawFileType: "RAW", // Tracks what kind of file is currently sitting in the rawBuffer
+    rawFileType: "RAW", 
 
-    // Theme Variables
+    // Dynamic Theme Variables
     systemColor: '#FFB000',
     systemBgColor: '#000000',
+    cursorColor: '#FFB000',
+    fontFamily: 'monospace',
+    fontWeight: 'bold',
+    fontStyle: 'normal',
+    textDecor: 'none',
 
     // ==========================================
     // 2. HELP DOCUMENTATION
@@ -35,9 +40,11 @@ const Parser = {
         "VAR <name>=<val> : SET VARIABLE",
         "DIM <arr> <size> : CREATE ARRAY",
         "PEEK <idx>       : READ VRAM",
-        "POKE <idx> <val> : WRITE VRAM",
+        "POKE <idx> <val> : WRITE BG COLOR",
+        "POKE_FG <i><val> : WRITE FG COLOR",
+        "POKE_CHAR <i><c> : WRITE ASCII",
         "PLOT <x> <y> <c> : DRAW PIXEL",
-        "DRAW_BOX <x> <y> <w> <h> <c>",
+        "DRAW_BOX <x><y><w><h><c>",
         "DEF_SPRITE <id> <w> <h> <c> <d>",
         "DRAW_SPRITE <id> <x> <y>",
         "IF <cond> THEN ... : LOGIC",
@@ -63,8 +70,16 @@ const Parser = {
     resetTheme: function() {
         this.systemColor = '#FFB000';
         this.systemBgColor = '#000000';
+        this.cursorColor = '#FFB000';
+        this.fontFamily = 'monospace';
+        this.fontWeight = 'bold';
+        this.fontStyle = 'normal';
+        this.textDecor = 'none';
+        
         document.documentElement.style.setProperty('--bg-color', '#050505');
         document.documentElement.style.setProperty('--crt-border', '#1a1a1a');
+        let scanlineObj = document.querySelector('.scanlines');
+        if (scanlineObj) scanlineObj.style.display = 'block';
     },
 
     setPadMode: function(isActive) {
@@ -231,7 +246,7 @@ const Parser = {
         if (cmd === "----") {
             this.isCapturingRaw = !this.isCapturingRaw;
             if (this.isCapturingRaw) {
-                this.rawFileType = "RAW"; // Reset the tracker when manually typing
+                this.rawFileType = "RAW"; 
                 this.printLine("RAW MODE: ON (APPENDING)");
             } else {
                 this.printLine("RAW MODE: OFF (" + this.rawBuffer.length + " LINES TOTAL)");
@@ -258,9 +273,6 @@ const Parser = {
         let firstWord = parts[0];
         let fwUpper = firstWord.toUpperCase();
 
-        // --------------------------------------
-        // GUI & MENU SYSTEM ($COMMANDS)
-        // --------------------------------------
         if (fwUpper.startsWith("$")) {
             this.cursorY++;
             this.checkScroll();
@@ -356,9 +368,6 @@ const Parser = {
             return; 
         }
 
-        // --------------------------------------
-        // PROGRAMMING MODE (LINE NUMBERS)
-        // --------------------------------------
         if (!isNaN(firstWord)) {
             let lineNum = parseInt(firstWord);
             let codeString = cmd.substring(firstWord.length).trim();
@@ -373,9 +382,6 @@ const Parser = {
             this.textBuffer.sort((a, b) => a.line - b.line); 
             
         } else {
-            // --------------------------------------
-            // IMMEDIATE TERMINAL COMMANDS
-            // --------------------------------------
             this.cursorY++;
             this.checkScroll();
 
@@ -577,11 +583,10 @@ const Parser = {
         else if (this.rawBuffer.length > 0) {
             let fileType = this.rawFileType;
             
-            // SMART SNIFFER: If typed manually (RAW), intelligently scan syntax to guess the file type!
             if (fileType === "RAW") {
                 for (let i = 0; i < this.rawBuffer.length; i++) {
                     let chk = this.rawBuffer[i].toUpperCase();
-                    if (chk.includes("DEF_MENU") || chk.includes("PAGE_BG") || chk.includes("TEXT_COLOR")) { fileType = "DISKGUI"; break; }
+                    if (chk.includes("DEF_MENU") || chk.includes("PAGE_BG") || chk.includes("TEXT_COLOR") || chk.includes("FONT_FAMILY") || chk.includes("CURSOR_COLOR")) { fileType = "DISKGUI"; break; }
                     if (chk.includes("DPAD:") || chk.includes("BTN:")) { fileType = "DISKPAD"; break; }
                 }
             }
@@ -596,7 +601,7 @@ const Parser = {
                     let line = this.rawBuffer[i].trim();
                     let upperLine = line.toUpperCase();
                     
-                    // --- CSS STYLING ENGINE ---
+                    // --- NEW: CSS STYLING ENGINE ---
                     if (upperLine.startsWith("PAGE_BG ")) {
                         document.documentElement.style.setProperty('--bg-color', line.substring(8).trim());
                         stylesApplied++;
@@ -619,6 +624,33 @@ const Parser = {
                             if (this.vram[c].bg === this.systemBgColor) this.vram[c].bg = newBg;
                         }
                         this.systemBgColor = newBg;
+                        stylesApplied++;
+                    }
+                    // --- THE NEW TYPOGRAPHY STYLES ---
+                    else if (upperLine.startsWith("CURSOR_COLOR ")) {
+                        this.cursorColor = this.resolveColor(line.substring(13).trim());
+                        stylesApplied++;
+                    }
+                    else if (upperLine.startsWith("FONT_FAMILY ")) {
+                        this.fontFamily = line.substring(12).trim();
+                        stylesApplied++;
+                    }
+                    else if (upperLine.startsWith("FONT_WEIGHT ")) {
+                        this.fontWeight = line.substring(12).trim().toLowerCase();
+                        stylesApplied++;
+                    }
+                    else if (upperLine.startsWith("FONT_STYLE ")) {
+                        this.fontStyle = line.substring(11).trim().toLowerCase();
+                        stylesApplied++;
+                    }
+                    else if (upperLine.startsWith("TEXT_DECOR ")) {
+                        this.textDecor = line.substring(11).trim().toUpperCase();
+                        stylesApplied++;
+                    }
+                    else if (upperLine.startsWith("CRT_SCANLINES ")) {
+                        let state = line.substring(14).trim().toUpperCase();
+                        let scanlineObj = document.querySelector('.scanlines');
+                        if (scanlineObj) scanlineObj.style.display = state === "OFF" ? 'none' : 'block';
                         stylesApplied++;
                     }
                     // --- MENU BUILDER ---
@@ -890,6 +922,20 @@ const Parser = {
             let idx = parseInt(this.evaluateExpression(parts[1]));
             let val = parseInt(this.evaluateExpression(parts[2]));
             if (idx >= 0 && idx < this.vram.length) this.vram[idx].bg = this.resolveColor(val.toString());
+            this.currentLineIndex++;
+        }
+        // NEW COMMAND: Allows placing a specific text color per-cell
+        else if (cmd === "POKE_FG") {
+            let idx = parseInt(this.evaluateExpression(parts[1]));
+            let val = parseInt(this.evaluateExpression(parts[2]));
+            if (idx >= 0 && idx < this.vram.length) this.vram[idx].fg = this.resolveColor(val.toString());
+            this.currentLineIndex++;
+        }
+        // NEW COMMAND: Allows placing a specific ASCII character directly into a cell index
+        else if (cmd === "POKE_CHAR") {
+            let idx = parseInt(this.evaluateExpression(parts[1]));
+            let charStr = parts[2].replace(/"/g, ""); 
+            if (idx >= 0 && idx < this.vram.length) this.vram[idx].char = charStr.substring(0, 1);
             this.currentLineIndex++;
         }
         else if (cmd === "PEEK") {
