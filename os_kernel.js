@@ -1,117 +1,191 @@
-const Kernel = {
-    // ==========================================
-    // 1. KERNEL STATE & FILE SYSTEM INIT
-    // ==========================================
+/**
+ * ==============================================================
+ * P1 CREATIONS - DISKOS V1.8 CORE KERNEL
+ * File: os_kernel.js
+ * Description: Monolithic Kernel & VFS Dispatcher
+ * ==============================================================
+ */
+
+// Global System Variables
+window.SYS_GUI_EVENT = "NONE";
+window.TERMINAL_COLOR = "#00FF00";
+
+// ==========================================
+// 1. CORE DISPATCHER
+// ==========================================
+function executeDiskFile(filename, rawData) {
+    if (!filename || !rawData) return systemPrint("SYS ERROR: MISSING FILE DATA");
+
+    // Extract extension and convert to uppercase for safe matching
+    const ext = filename.split('.').pop().toUpperCase();
     
-    // The current active directory. All virtual saves/loads happen inside this "folder".
-    // Using a prefix system lets us fake a real folder structure in a flat database.
-    activeDir: "MASTER.diskDIR",
-
-    // ==========================================
-    // 2. VIRTUAL FILE SYSTEM (LOCAL STORAGE)
-    // ==========================================
-    
-    // Saves a file to the browser's persistent localStorage cache.
-    // It prepends the active directory name (e.g., "MASTER.diskDIR/COLORS.diskGUI")
-    virtualSave: function(filename, payload) {
-        let key = this.activeDir + "/" + filename;
-        try {
-            localStorage.setItem(key, payload);
-        } catch (e) {
-            console.error("Virtual Drive Full or Disabled", e);
-            if (typeof Parser !== 'undefined') {
-                Parser.printLine("?VIRTUAL DRIVE ERROR (QUOTA EXCEEDED)");
+    switch (ext) {
+        case 'DISKCODE':
+            // Hands off to os_parser.js (Assumes runParser is globally available)
+            if (typeof runParser === "function") {
+                return runParser(rawData); 
+            } else {
+                return systemPrint("SYS ERROR: PARSER NOT FOUND");
             }
-        }
-    },
-
-    // Loads a file strictly from the currently mounted directory
-    virtualLoad: function(filename) {
-        let key = this.activeDir + "/" + filename;
-        return localStorage.getItem(key);
-    },
-
-    // Scans localStorage for all files that belong to a specific directory prefix
-    mountDir: function(dirname) {
-        this.activeDir = dirname;
-        let files = [];
-        let prefix = this.activeDir + "/";
-        
-        for (let i = 0; i < localStorage.length; i++) {
-            let key = localStorage.key(i);
-            // If the key starts with our folder name, chop off the folder name and list the file
-            if (key.startsWith(prefix)) {
-                files.push(key.substring(prefix.length));
-            }
-        }
-        return files;
-    },
-
-    // ==========================================
-    // 3. PHYSICAL HARDWARE I/O (DEVICE STORAGE)
-    // ==========================================
-    
-    // Packages data into a binary blob and forces the browser to download it.
-    // This is how you export native P1 Creations apps to your phone's real storage.
-    physicalExport: function(filename, payload) {
-        // CRITICAL FIX: Using 'application/octet-stream' tells the mobile browser that this is 
-        // a raw binary file. This forces the browser to respect our proprietary .disk 
-        // extensions instead of automatically appending ".txt" to the end of the filename!
-        const blob = new Blob([payload], { type: "application/octet-stream" });
-        const url = URL.createObjectURL(blob);
-        
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = url;
-        a.download = filename;
-        
-        document.body.appendChild(a);
-        a.click();
-        
-        // Cleanup the DOM and memory after the download triggers
-        setTimeout(() => {
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
-        }, 100);
-    },
-
-    // Spawns a hidden HTML file input to browse the phone/computer for a physical file
-    triggerImport: function() {
-        const input = document.createElement('input');
-        input.type = 'file';
-        // Suggest file types to the OS file picker
-        input.accept = '.diskCODE,.diskGUI,.diskPAD,.txt'; 
-        
-        input.onchange = e => {
-            const file = e.target.files[0];
-            if (!file) {
-                if (typeof Parser !== 'undefined') {
-                    Parser.printLine("?IMPORT CANCELLED");
-                    Parser.printLine("READY.");
-                }
-                return;
-            }
-            
-            const reader = new FileReader();
-            reader.onload = event => {
-                // Send the contents of the chosen file to the Kernel's import processor
-                this.processImport(event.target.result, file.name);
-            };
-            reader.readAsText(file);
-        };
-        
-        input.click();
-    },
-
-    // Handles files dropped onto the screen or selected via triggerImport
-    processImport: function(content, filename) {
-        // 1. Immediately save a copy of it to the Virtual Drive so it persists after a reboot
-        this.virtualSave(filename, content);
-        
-        if (typeof Parser !== 'undefined') {
-            Parser.printLine("IMPORTED " + filename + " TO DISK.");
-            // 2. Pass the data to the Parser to be compiled into the active system memory
-            Parser.processFileContent(content, filename);
-        }
+        case 'DISKGUI':
+            return loadGUI(rawData);
+        case 'DISKDIR':
+            return loadDIR(rawData);
+        case 'DISKROM':
+            return unpackROM(rawData);
+        case 'DISKPAD':
+            return loadPAD(rawData);
+        default:
+            return systemPrint("SYS ERROR: UNKNOWN FORMAT -> " + ext);
     }
-};
+}
+
+// ==========================================
+// 2. VIRTUAL FILE SYSTEM (VFS) HELPERS
+// ==========================================
+function saveToVFS(filename, data) {
+    localStorage.setItem('diskOS_VFS_' + filename, data);
+}
+
+function loadFromVFS(filename) {
+    return localStorage.getItem('diskOS_VFS_' + filename);
+}
+
+// ==========================================
+// 3. INTERNAL HANDLER FUNCTIONS
+// ==========================================
+
+// --- GUI Handler (.diskGUI) ---
+function loadGUI(configText) {
+    const lines = configText.split('\n');
+    let menuActive = false;
+    
+    // Clear previous UI (Assuming an HTML element with ID 'os_ui_layer' exists)
+    const uiLayer = document.getElementById('os_ui_layer');
+    if (uiLayer) uiLayer.innerHTML = ''; 
+
+    lines.forEach(line => {
+        line = line.trim();
+        if (!line) return;
+        
+        if (line.startsWith("DEF_MENU")) {
+            menuActive = true;
+            if (uiLayer) {
+                // Extract optional title
+                const titleMatch = configText.match(/TITLE\s+"([^"]+)"/);
+                const titleText = titleMatch ? titleMatch[1] : "SYSTEM MENU";
+                uiLayer.innerHTML += `<div class="disk-menu-title">${titleText}</div>`;
+            }
+        } 
+        else if (line.startsWith("ITEM") && menuActive) {
+            const match = line.match(/ITEM\s+"([^"]+)"\s+EVENT\s+"([^"]+)"/);
+            if (match && uiLayer) {
+                const label = match[1];
+                const eventTrig = match[2];
+                
+                // Construct declarative button
+                const btn = document.createElement('button');
+                btn.innerText = label;
+                btn.className = "disk-gui-btn";
+                btn.onclick = () => {
+                    window.SYS_GUI_EVENT = eventTrig;
+                };
+                uiLayer.appendChild(btn);
+            }
+        } 
+        else if (line === "END_MENU") {
+            menuActive = false;
+        }
+    });
+    
+    systemPrint("GUI LOADED.");
+}
+
+// --- Directory Handler (.diskDIR) ---
+function loadDIR(dirText) {
+    const files = dirText.split('\n');
+    
+    systemPrint("========================");
+    systemPrint(" VOLUME DIRECTORY");
+    systemPrint("========================");
+    
+    let count = 0;
+    files.forEach(file => {
+        if (file.trim() !== "") {
+            systemPrint(" > " + file.trim());
+            count++;
+        }
+    });
+    
+    systemPrint("========================");
+    systemPrint(count + " FILES FOUND");
+}
+
+// --- ROM Unpacker (.diskROM) ---
+function unpackROM(romText) {
+    systemPrint("UNPACKING CARTRIDGE...");
+    
+    // Split the file block by your custom tag
+    const chunks = romText.split('===FILE: ');
+    
+    chunks.forEach(chunk => {
+        if (chunk.trim() === "") return;
+        
+        const splitIndex = chunk.indexOf('===');
+        if (splitIndex === -1) return; // Skip if format is invalid
+        
+        // Isolate filename and payload
+        const fileName = chunk.substring(0, splitIndex).trim();
+        const fileData = chunk.substring(splitIndex + 3).trim();
+        
+        saveToVFS(fileName, fileData);
+        systemPrint("INSTALLED: " + fileName);
+    });
+    
+    systemPrint("ROM INSTALL COMPLETE.");
+}
+
+// --- Pad Mapping Handler (.diskPAD) ---
+function loadPAD(padText) {
+    const lines = padText.split('\n');
+    
+    lines.forEach(line => {
+        line = line.trim();
+        if (line.startsWith("BTN:")) {
+            const parts = line.replace("BTN:", "").trim().split(" ");
+            if (parts.length < 2) return;
+            
+            const touchId = parts[0]; 
+            const keyMap = parts[1];  
+            
+            // Map to physical on-screen DOM buttons
+            const btnElement = document.getElementById('pad_btn_' + touchId);
+            if (btnElement) {
+                // Overwrite any existing touch listener to map this specific layout
+                btnElement.ontouchstart = (e) => {
+                    e.preventDefault(); // Prevents browser from scrolling/zooming
+                    window.dispatchEvent(new KeyboardEvent('keydown', {
+                        'key': keyMap,
+                        'code': keyMap
+                    }));
+                };
+            }
+        }
+    });
+    
+    systemPrint("GAMEPAD MAPPED.");
+}
+
+// ==========================================
+// 4. SYSTEM UTILITIES
+// ==========================================
+function systemPrint(text) {
+    // Hooks into your existing terminal rendering logic.
+    // If you have a global terminal buffer array for the canvas render loop, push it there:
+    if (typeof window.terminalBuffer !== 'undefined') {
+        window.terminalBuffer.push(text);
+    } else {
+        // Fallback for debugging if the canvas buffer isn't exposed
+        console.log("[DiskOS]:", text); 
+    }
+}
