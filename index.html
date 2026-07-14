@@ -8,22 +8,24 @@
         :root { --bg-color: #050505; --crt-border: #1a1a1a; }
 
         body, html {
-            margin: 0; padding: 0; width: 100%; height: 100%;
+            margin: 0; padding: 0; width: 100%; 
+            height: 100%; /* Fallback */
+            height: 100dvh; /* Tracks actual visible screen, ignoring mobile UI bars */
             background-color: var(--bg-color); display: flex;
             flex-direction: column; justify-content: center; align-items: center;
             font-family: monospace; overflow: hidden; touch-action: none; 
+            transition: padding-top 0.2s ease, justify-content 0.2s;
         }
 
-        /* FIX 1: Responsive Monitor. Shrinks dynamically to fit mobile width */
         #monitor {
             position: relative; background-color: #000;
             border: 24px solid var(--crt-border); border-radius: 16px;
             box-shadow: 0 0 50px rgba(0,0,0,0.8), inset 0 0 10px #000;
             overflow: hidden; box-sizing: border-box;
             width: 100%; max-width: 688px; 
+            transition: transform 0.2s ease;
         }
 
-        /* FIX 2: Canvas scales down while keeping the retro 2:1 aspect ratio */
         canvas { 
             display: block; width: 100%; height: auto; 
             image-rendering: pixelated; 
@@ -40,7 +42,7 @@
             box-shadow: inset 0 0 40px rgba(255, 176, 0, 0.1); border-radius: 4px; pointer-events: none;
         }
 
-        /* FIX 3: Keep input in the viewport so the browser doesn't glitch scrolling to it */
+        /* HIDDEN MOBILE INPUT */
         #mobile-keyboard {
             position: fixed; top: 0; left: 0; width: 1px; height: 1px; 
             opacity: 0.01; pointer-events: none; z-index: -1; border: none; outline: none;
@@ -67,9 +69,21 @@
         .btn-action { width: 70px; height: 70px; }
         .btn-small { width: 45px; height: 45px; font-size: 12px; background-color: #522; }
 
-        @media (max-width: 700px) {
+        /* =======================================
+           VERTICAL MOBILE EXCEPTIONS 
+           ======================================= */
+        @media (max-width: 700px) and (orientation: portrait) {
             #monitor { border-width: 10px; max-width: 96vw; }
             #gamepad { max-width: 96vw; padding: 0 10px; }
+            
+            /* When the keyboard opens, slide to the top and hide the gamepad */
+            body.typing-mode {
+                justify-content: flex-start !important;
+                padding-top: 5vh;
+            }
+            body.typing-mode #gamepad {
+                display: none !important;
+            }
         }
     </style>
 </head>
@@ -100,6 +114,12 @@
         let blinkTimer = 0; let cursorVisible = true;
 
         // ==========================================
+        // MOBILE KEYBOARD TOGGLE
+        // ==========================================
+        mobileInput.addEventListener('focus', () => document.body.classList.add('typing-mode'));
+        mobileInput.addEventListener('blur', () => document.body.classList.remove('typing-mode'));
+
+        // ==========================================
         // KEYBOARD I/O
         // ==========================================
         window.addEventListener('keydown', (e) => {
@@ -126,9 +146,7 @@
             Parser.setTouchState(isActive ? 1 : 0, gridX, gridY);
         }
 
-        // iOS requires a direct click event to reliably summon the keyboard sometimes
         canvas.addEventListener('click', () => { mobileInput.focus(); });
-
         canvas.addEventListener('mousedown', (e) => handlePointer(e, true));
         window.addEventListener('mouseup', (e) => Parser.setTouchState(0, Parser.touchX, Parser.touchY));
         canvas.addEventListener('mousemove', (e) => { if (Parser.touchActive) handlePointer(e, true); });
