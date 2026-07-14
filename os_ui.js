@@ -29,7 +29,11 @@ window.addEventListener('keydown', (e) => {
     if(["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.code)) {
         if(document.body.classList.contains('pad-active')) e.preventDefault();
     }
-    Parser.handleKey(e.key);
+    
+    // THE FIX: Let the invisible textarea handle all standard typing!
+    // We only step in here for Escape (to break code) and hardware states for games
+    if (e.key === "Escape") Parser.handleKey(e.key);
+    
     Parser.setKeyState(e.key, true); // Used for BTN_ checks in code
 });
 
