@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>DiskOS V1.5</title>
+    <title>DiskOS V1.8</title>
     <style>
         :root {
             --bg-color: #050505;
@@ -32,6 +32,9 @@
             box-shadow: 0 0 50px rgba(0,0,0,0.8), inset 0 0 10px #000;
             overflow: hidden;
         }
+
+<!-- MOBILE KEYBOARD INTERCEPTOR -->
+<input type="text" id="mobile-keyboard" style="position: absolute; top: -1000px; left: -1000px; opacity: 0;" autocorrect="off" autocapitalize="none" spellcheck="false">
 
         <div id="monitor">
     <canvas id="screen" width="640" height="320"></canvas>
