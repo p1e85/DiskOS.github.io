@@ -124,12 +124,13 @@
             Parser.setKeyState(e.key, false);
         });
 
+                // ==========================================
+        // MOUSE / TOUCH I/O & MOBILE KEYBOARD
         // ==========================================
-        // MOUSE / TOUCH I/O
-        // ==========================================
+        const mobileInput = document.getElementById('mobile-keyboard');
+
         function handlePointer(e, isActive) {
             const rect = canvas.getBoundingClientRect();
-            // Get coordinates relative to canvas scaling
             const scaleX = canvas.width / rect.width;
             const scaleY = canvas.height / rect.height;
             
@@ -139,7 +140,6 @@
             let x = (clientX - rect.left) * scaleX;
             let y = (clientY - rect.top) * scaleY;
 
-            // Convert raw pixels to 64x32 grid coordinates
             let gridX = Math.floor(x / CELL_WIDTH);
             let gridY = Math.floor(y / CELL_HEIGHT);
 
@@ -150,9 +150,31 @@
         window.addEventListener('mouseup', (e) => Parser.setTouchState(0, Parser.touchX, Parser.touchY));
         canvas.addEventListener('mousemove', (e) => { if (Parser.touchActive) handlePointer(e, true); });
 
-        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); handlePointer(e, true); }, {passive: false});
+        // MOBILE TOUCH EVENT (Triggers Keyboard)
+        canvas.addEventListener('touchstart', (e) => { 
+            mobileInput.focus(); // Forces the mobile keyboard to open
+            handlePointer(e, true); 
+        }, {passive: false});
+        
         window.addEventListener('touchend', (e) => Parser.setTouchState(0, Parser.touchX, Parser.touchY));
         canvas.addEventListener('touchmove', (e) => { e.preventDefault(); if (Parser.touchActive) handlePointer(e, true); }, {passive: false});
+
+        // ROUTE MOBILE KEYBOARD TO DISKOS PARSER
+        mobileInput.addEventListener('input', (e) => {
+            let val = e.target.value;
+            if (val.length > 0) {
+                let char = val.charAt(val.length - 1);
+                Parser.handleKey(char); // Send the letter to the OS
+                e.target.value = "";    // Clear the hidden input immediately
+            }
+        });
+
+        // ROUTE MOBILE BACKSPACE AND ENTER
+        mobileInput.addEventListener('keydown', (e) => {
+            if (e.key === "Enter" || e.key === "Backspace") {
+                Parser.handleKey(e.key);
+            }
+        });
 
 
         // ==========================================
