@@ -144,7 +144,7 @@
             Parser.setTouchState(0, Parser.touchX, Parser.touchY);
         }, {passive: false});
 
-        // FIXED PASTE INTERCEPTOR
+        // ROBUST INPUT/PASTE LOGIC
         overlay.addEventListener('paste', (e) => {
             e.preventDefault();
             let pasteText = (e.clipboardData || window.clipboardData).getData('text');
@@ -155,7 +155,8 @@
         overlay.addEventListener('input', (e) => {
             let val = e.target.value;
             if (val.length > 0) {
-                Parser.handleKey(val.charAt(val.length - 1));
+                if (val.length === 1) Parser.handleKey(val);
+                else Parser.pasteFromClipboard(val);
                 overlay.value = "";    
             }
         });
@@ -167,6 +168,7 @@
             }
         });
 
+        // PERSISTENT FOCUS
         overlay.addEventListener('blur', () => {
             if (document.body.classList.contains('typing-mode')) {
                 setTimeout(() => overlay.focus({ preventScroll: true }), 50);
