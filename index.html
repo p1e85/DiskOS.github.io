@@ -217,5 +217,27 @@
         // Start the engine
         render();
     </script>
+
+        // ==========================================
+        // DRAG AND DROP INSTALLATION
+        // ==========================================
+        window.addEventListener('dragover', (e) => {
+            e.preventDefault(); // Required to allow dropping
+            e.dataTransfer.dropEffect = 'copy';
+        });
+
+        window.addEventListener('drop', (e) => {
+            e.preventDefault();
+            if (e.dataTransfer.files.length > 0) {
+                const file = e.dataTransfer.files[0];
+                const reader = new FileReader();
+                reader.onload = event => {
+                    // Hijack the Kernel's import processor!
+                    Kernel.processImport(event.target.result, file.name);
+                };
+                reader.readAsText(file);
+            }
+        });
+    
 </body>
 </html>
