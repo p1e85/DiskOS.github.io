@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DiskOS V1.8</title>
+    <link rel="stylesheet" href="testmodules/styles.css">
+</head>
+<body>
+
+    <div id="monitor">
+        <textarea id="mobile-keyboard" autocorrect="off" autocapitalize="none" spellcheck="false" autocomplete="off"></textarea>
+        <canvas id="screen" width="1280" height="640"></canvas>
+        <div class="scanlines"></div>
+        <div class="glass-glare"></div>
+    </div>
+
+    <div id="gamepad">
+        <div id="pad-left" class="pad-section"></div>
+        <div id="pad-right" class="pad-section"></div>
+    </div>
+
+    <script src="testmodules/os_kernel.js"></script>
+    <script src="testmodules/os_parser.js"></script>
+    <script src="testmodules/os_ui.js"></script>
+
+</body>
+</html>
