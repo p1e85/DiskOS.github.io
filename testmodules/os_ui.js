@@ -133,7 +133,6 @@ function render() {
     ctx.fillStyle = Parser.systemBgColor;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // NEW: Inject dynamic styling from the OS Theme Parser
     ctx.font = `${Parser.fontStyle} ${Parser.fontWeight} 16px "${Parser.fontFamily}"`;
     ctx.textBaseline = "top";
     
@@ -150,7 +149,6 @@ function render() {
                 ctx.fillStyle = cell.fg;
                 ctx.fillText(cell.char, x * CELL_WIDTH, y * CELL_HEIGHT);
                 
-                // NEW: Custom rendering for Underline and Strikethrough
                 if (Parser.textDecor === 'UNDERLINE') {
                     ctx.fillRect(x * CELL_WIDTH, y * CELL_HEIGHT + 17, CELL_WIDTH, 2);
                 } else if (Parser.textDecor === 'STRIKE') {
@@ -164,7 +162,6 @@ function render() {
     if (blinkTimer > 30) { cursorVisible = !cursorVisible; blinkTimer = 0; }
     
     if (!Parser.isRunning && cursorVisible) {
-        // NEW: Decoupled independent cursor color
         ctx.fillStyle = Parser.cursorColor; 
         ctx.fillRect(Parser.cursorX * CELL_WIDTH, Parser.cursorY * CELL_HEIGHT, CELL_WIDTH, CELL_HEIGHT);
         
