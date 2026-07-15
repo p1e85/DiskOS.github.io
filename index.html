@@ -191,6 +191,38 @@
             .hero h1 { font-size: 2.2rem; }
             .btn-launch { width: 100%; padding: 15px 0; }
         }
+
+        .btn-github {
+            display: inline-block;
+            background-color: transparent;
+            color: var(--secondary);
+            text-decoration: none;
+            font-size: 1.2rem;
+            font-weight: bold;
+            padding: 15px 30px;
+            border: 2px solid var(--secondary);
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            text-transform: uppercase;
+            margin-left: 15px;
+        }
+
+        .btn-github:hover {
+            background-color: var(--secondary);
+            color: #000;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.4);
+        }
+        
+        /* Mobile Adjustments */
+        @media (max-width: 768px) {
+            .hero h1 { font-size: 2.2rem; }
+            .btn-launch, .btn-github { 
+                width: 100%; 
+                margin: 10px 0 0 0; 
+                padding: 15px 0; 
+            }
+        }
+
     </style>
 </head>
 <body>
@@ -198,10 +230,13 @@
     <div class="container">
         
         <!-- HERO SECTION -->
-        <section class="hero">
+                <section class="hero">
             <h1>DiskOS V1.8</h1>
             <h2>A BROWSER-BASED RETRO OPERATING SYSTEM & GAME ENGINE BY P1 CREATIONS</h2>
-            <a href="diskos-beta.html" class="btn-launch">Launch OS</a>
+            <div>
+                <a href="diskos_prod.html" class="btn-launch">Launch OS</a>
+                <a href="https://www.github.com/p1e85" target="_blank" class="btn-github">Read Docs on GitHub</a>
+            </div>
         </section>
 
         <!-- FEATURES SECTION -->
@@ -250,11 +285,14 @@
         </section>
 
         <!-- FOOTER & DEV LINK -->
-        <footer>
+                <footer>
             <p>&copy; 2026 P1 Creations. Built in Chicago, IL.</p>
-            <!-- Stealthy link to your sandbox environment -->
-            <a href="diskos-test.html" class="test-link">Access Developer Test Environment</a>
+            <div style="margin-top: 20px; display: flex; justify-content: center; gap: 20px; flex-wrap: wrap;">
+                <a href="https://www.github.com/p1e85" target="_blank" class="test-link">GitHub & Manuals</a>
+                <a href="diskos_test.html" class="test-link">Access Developer Test Environment</a>
+            </div>
         </footer>
+
 
     </div>
 
