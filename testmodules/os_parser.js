@@ -10,7 +10,8 @@ const Parser = {
     currentLineIndex: 0,                
     variables: {},                      
     sprites: {},                        
-    customMenus: {},                    
+    customMenus: {}, 
+    callStack: [], // NEW: Tracks where to RETURN to after a GOSUB                   
     
     waitingForKey: false, targetVar: "", 
     waitingForTimer: false,             
@@ -36,6 +37,7 @@ const Parser = {
     // ==========================================
     HELP_TEXT: [
         "--- DISKOS V1.8 COMMANDS ---",
+        "REM <text>       : COMMENT",
         "PRINT <val>      : OUTPUT TEXT",
         "VAR <name>=<val> : SET VARIABLE",
         "DIM <arr> <size> : CREATE ARRAY",
@@ -49,6 +51,8 @@ const Parser = {
         "DRAW_SPRITE <id> <x> <y>",
         "IF <cond> THEN ... : LOGIC",
         "GOTO <line>      : JUMP",
+        "GOSUB <line>     : CALL FUNC",
+        "RETURN           : END FUNC",
         "WAIT <ms>        : DELAY",
         "BEEP <f> <d>     : SOUND",
         "PLAY <note> <d>  : MUSIC",
@@ -560,6 +564,7 @@ const Parser = {
 
             this.isRunning = true;
             this.currentLineIndex = 0;
+            this.callStack = []; // NEW: Reset subroutine stack
             
             let preservedCount = this.variables["SYS_FILE_COUNT"];
             let preservedFiles = this.variables["SYS_FILES"];
@@ -911,6 +916,12 @@ const Parser = {
         let parts = code.split(" ");
         let cmd = parts[0].toUpperCase();
 
+        // NEW: REM ignores the rest of the line completely
+        if (cmd === "REM") {
+            this.currentLineIndex++;
+            return;
+        }
+
         if (code.includes("GET_KEY")) {
             let parts = code.split("=");
             if (parts.length === 2) {
@@ -1106,6 +1117,21 @@ const Parser = {
                             return;
                         }
                     } 
+                    // NEW: Allow IF ... THEN GOSUB
+                    else if (aCmd === "GOSUB") {
+                        let targetLine = parseInt(actionParts[1]);
+                        let targetIndex = this.textBuffer.findIndex(item => item.line === targetLine);
+                        if (targetIndex !== -1) {
+                            this.callStack.push(this.currentLineIndex + 1);
+                            this.currentLineIndex = targetIndex; 
+                            return; 
+                        } else {
+                            this.printLine("?LINE NOT FOUND ERROR");
+                            this.isRunning = false;
+                            this.printLine("READY.");
+                            return;
+                        }
+                    }
                     else if (aCmd === "END") {
                         this.isRunning = false;
                         this.printLine("READY.");
@@ -1147,6 +1173,29 @@ const Parser = {
                 this.currentLineIndex = targetIndex; 
             } else {
                 this.printLine("?LINE NOT FOUND ERROR");
+                this.isRunning = false;
+                this.printLine("READY.");
+            }
+        }
+        // NEW COMMAND: GOSUB (Calls a subroutine block of code)
+        else if (cmd === "GOSUB") {
+            let targetLine = parseInt(parts[1]);
+            let targetIndex = this.textBuffer.findIndex(item => item.line === targetLine);
+            if (targetIndex !== -1) {
+                this.callStack.push(this.currentLineIndex + 1); // Remember where we came from
+                this.currentLineIndex = targetIndex; 
+            } else {
+                this.printLine("?LINE NOT FOUND ERROR");
+                this.isRunning = false;
+                this.printLine("READY.");
+            }
+        }
+        // NEW COMMAND: RETURN (Ends a GOSUB block and goes back to where it was called)
+        else if (cmd === "RETURN") {
+            if (this.callStack.length > 0) {
+                this.currentLineIndex = this.callStack.pop(); // Jump back
+            } else {
+                this.printLine("?RETURN WITHOUT GOSUB ERROR");
                 this.isRunning = false;
                 this.printLine("READY.");
             }
