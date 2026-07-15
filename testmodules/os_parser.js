@@ -11,10 +11,12 @@ const Parser = {
     variables: {},                      
     sprites: {},                        
     customMenus: {}, 
-    callStack: [], // NEW: Tracks where to RETURN to after a GOSUB                   
+    callStack: [], // Tracks where to RETURN to after a GOSUB  
+    forStack: [],  // NEW: Tracks FOR...NEXT loops                 
     
     waitingForKey: false, targetVar: "", 
-    waitingForTimer: false,             
+    waitingForTimer: false, 
+    waitingForInput: false, inputVar: "", inputBuffer: "", // NEW: INPUT command state            
     keysDown: {},                       
     touchActive: 0, touchX: 0, touchY: 0, 
     audioCtx: null,                     
@@ -39,14 +41,18 @@ const Parser = {
         "--- DISKOS V1.8 COMMANDS ---",
         "REM <text>       : COMMENT",
         "PRINT <val>      : OUTPUT TEXT",
+        "INPUT <var>      : PROMPT STRING",
         "VAR <name>=<val> : SET VARIABLE",
         "DIM <arr> <size> : CREATE ARRAY",
-        "PEEK <idx>       : READ VRAM",
+        "FOR <v>=<x> TO <y> / NEXT <v>",
+        "PEEK <idx>       : READ BG COLOR",
+        "PEEK_CHAR <idx>  : READ ASCII",
         "POKE <idx> <val> : WRITE BG COLOR",
         "POKE_FG <i><val> : WRITE FG COLOR",
         "POKE_CHAR <i><c> : WRITE ASCII",
         "PLOT <x> <y> <c> : DRAW PIXEL",
         "DRAW_BOX <x><y><w><h><c>",
+        "SCROLL <DIR>     : SHIFT SCREEN",
         "DEF_SPRITE <id> <w> <h> <c> <d>",
         "DRAW_SPRITE <id> <x> <y>",
         "IF <cond> THEN ... : LOGIC",
@@ -173,6 +179,7 @@ const Parser = {
                 this.isRunning = false;
                 this.waitingForKey = false;
                 this.waitingForTimer = false;
+                this.waitingForInput = false;
                 this.printLine("BREAK.");
                 this.printLine("READY.");
             }
@@ -184,6 +191,39 @@ const Parser = {
             return;
         }
         
+        // NEW: Handles typing out full strings via INPUT command
+        if (this.waitingForInput) {
+            if (key === "Enter") {
+                this.variables[this.inputVar] = this.inputBuffer;
+                this.waitingForInput = false;
+                this.currentLineIndex++;
+                this.cursorX = 0;
+                this.cursorY++;
+                this.checkScroll();
+            } else if (key === "Backspace") {
+                if (this.inputBuffer.length > 0) {
+                    this.inputBuffer = this.inputBuffer.slice(0, -1);
+                    if (this.cursorX > 0) {
+                        this.cursorX--;
+                        let idx = this.getIndex(this.cursorX, this.cursorY);
+                        this.vram[idx].char = ' ';
+                    }
+                }
+            } else if (key.length === 1) {
+                this.inputBuffer += key.toUpperCase();
+                let idx = this.getIndex(this.cursorX, this.cursorY);
+                this.vram[idx].char = key.toUpperCase();
+                this.vram[idx].fg = this.systemColor;
+                this.cursorX++;
+                if (this.cursorX >= this.cols) {
+                    this.cursorX = 0;
+                    this.cursorY++;
+                    this.checkScroll();
+                }
+            }
+            return;
+        }
+
         if (this.waitingForKey) {
             this.variables[this.targetVar] = key.toUpperCase();
             this.waitingForKey = false;
@@ -564,7 +604,8 @@ const Parser = {
 
             this.isRunning = true;
             this.currentLineIndex = 0;
-            this.callStack = []; // NEW: Reset subroutine stack
+            this.callStack = []; 
+            this.forStack = []; // Reset loops
             
             let preservedCount = this.variables["SYS_FILE_COUNT"];
             let preservedFiles = this.variables["SYS_FILES"];
@@ -582,6 +623,7 @@ const Parser = {
             
             this.sprites = {}; 
             this.waitingForTimer = false;
+            this.waitingForInput = false;
             this.keysDown = {}; 
             this.touchActive = 0;
         } 
@@ -903,7 +945,7 @@ const Parser = {
     // ==========================================
     
     executeStep: function() {
-        if (!this.isRunning || this.waitingForKey || this.waitingForTimer) return;
+        if (!this.isRunning || this.waitingForKey || this.waitingForTimer || this.waitingForInput) return;
 
         if (this.currentLineIndex >= this.textBuffer.length) {
             this.isRunning = false;
@@ -916,7 +958,6 @@ const Parser = {
         let parts = code.split(" ");
         let cmd = parts[0].toUpperCase();
 
-        // NEW: REM ignores the rest of the line completely
         if (cmd === "REM") {
             this.currentLineIndex++;
             return;
@@ -940,7 +981,14 @@ const Parser = {
                 this.printLine(val !== undefined ? val.toString() : "");
             }
             this.currentLineIndex++;
-        } 
+        }
+        // NEW COMMAND: Pauses engine to capture typed string
+        else if (cmd === "INPUT") {
+            this.waitingForInput = true;
+            this.inputVar = parts[1].trim();
+            this.inputBuffer = "";
+            return; 
+        }
         else if (cmd === "DIM") {
             let arrName = parts[1];
             let size = parseInt(this.evaluateExpression(parts[2]));
@@ -972,6 +1020,42 @@ const Parser = {
                 this.printLine("READY.");
             }
         }
+        // NEW COMMAND: FOR <var>=<start> TO <end>
+        else if (cmd === "FOR") {
+            let expr = code.substring(3).trim(); 
+            let p1 = expr.split("=");
+            if (p1.length === 2) {
+                let p2 = p1[1].split("TO");
+                if (p2.length === 2) {
+                    let vName = p1[0].trim();
+                    this.variables[vName] = parseInt(this.evaluateExpression(p2[0].trim()));
+                    this.forStack.push({ v: vName, end: p2[1].trim(), returnIndex: this.currentLineIndex + 1 });
+                    this.currentLineIndex++;
+                    return;
+                }
+            }
+            this.printLine("?FOR LOOP SYNTAX ERROR");
+            this.isRunning = false;
+        }
+        // NEW COMMAND: NEXT <var>
+        else if (cmd === "NEXT") {
+            let vName = parts[1].trim();
+            let loopIndex = this.forStack.length - 1; 
+            if (loopIndex >= 0 && this.forStack[loopIndex].v === vName) {
+                let loop = this.forStack[loopIndex];
+                this.variables[vName]++;
+                if (this.variables[vName] <= parseInt(this.evaluateExpression(loop.end))) {
+                    this.currentLineIndex = loop.returnIndex; // Jump back to start of loop!
+                    return;
+                } else {
+                    this.forStack.pop(); 
+                    this.currentLineIndex++;
+                    return;
+                }
+            }
+            this.printLine("?NEXT WITHOUT FOR ERROR");
+            this.isRunning = false;
+        }
         else if (cmd === "POKE") {
             let idx = parseInt(this.evaluateExpression(parts[1]));
             let val = parseInt(this.evaluateExpression(parts[2]));
@@ -993,6 +1077,12 @@ const Parser = {
         else if (cmd === "PEEK") {
             let idx = parseInt(this.evaluateExpression(parts[1]));
             this.variables["PEEK_VAL"] = this.vram[idx] ? this.vram[idx].bg : 0;
+            this.currentLineIndex++;
+        }
+        // NEW COMMAND: Reads ASCII char for collision detection
+        else if (cmd === "PEEK_CHAR") {
+            let idx = parseInt(this.evaluateExpression(parts[1]));
+            this.variables["PEEK_C"] = this.vram[idx] ? this.vram[idx].char : " ";
             this.currentLineIndex++;
         }
         else if (cmd === "WAIT") {
@@ -1045,6 +1135,32 @@ const Parser = {
                         this.vram[idx].bg = color;
                         this.vram[idx].char = ' ';
                     }
+                }
+            }
+            this.currentLineIndex++;
+        }
+        // NEW COMMAND: Hardware Level Scrolling 
+        else if (cmd === "SCROLL") {
+            let dir = parts[1].toUpperCase();
+            if (dir === "UP") {
+                for (let y = 1; y < this.rows; y++) {
+                    for (let x = 0; x < this.cols; x++) this.vram[this.getIndex(x, y - 1)] = { ...this.vram[this.getIndex(x, y)] };
+                }
+                for (let x = 0; x < this.cols; x++) this.vram[this.getIndex(x, this.rows - 1)] = { char: ' ', fg: this.systemColor, bg: this.systemBgColor };
+            } else if (dir === "DOWN") {
+                for (let y = this.rows - 2; y >= 0; y--) {
+                    for (let x = 0; x < this.cols; x++) this.vram[this.getIndex(x, y + 1)] = { ...this.vram[this.getIndex(x, y)] };
+                }
+                for (let x = 0; x < this.cols; x++) this.vram[this.getIndex(x, 0)] = { char: ' ', fg: this.systemColor, bg: this.systemBgColor };
+            } else if (dir === "LEFT") {
+                for (let y = 0; y < this.rows; y++) {
+                    for (let x = 1; x < this.cols; x++) this.vram[this.getIndex(x - 1, y)] = { ...this.vram[this.getIndex(x, y)] };
+                    this.vram[this.getIndex(this.cols - 1, y)] = { char: ' ', fg: this.systemColor, bg: this.systemBgColor };
+                }
+            } else if (dir === "RIGHT") {
+                for (let y = 0; y < this.rows; y++) {
+                    for (let x = this.cols - 2; x >= 0; x--) this.vram[this.getIndex(x + 1, y)] = { ...this.vram[this.getIndex(x, y)] };
+                    this.vram[this.getIndex(0, y)] = { char: ' ', fg: this.systemColor, bg: this.systemBgColor };
                 }
             }
             this.currentLineIndex++;
@@ -1117,7 +1233,6 @@ const Parser = {
                             return;
                         }
                     } 
-                    // NEW: Allow IF ... THEN GOSUB
                     else if (aCmd === "GOSUB") {
                         let targetLine = parseInt(actionParts[1]);
                         let targetIndex = this.textBuffer.findIndex(item => item.line === targetLine);
@@ -1177,12 +1292,11 @@ const Parser = {
                 this.printLine("READY.");
             }
         }
-        // NEW COMMAND: GOSUB (Calls a subroutine block of code)
         else if (cmd === "GOSUB") {
             let targetLine = parseInt(parts[1]);
             let targetIndex = this.textBuffer.findIndex(item => item.line === targetLine);
             if (targetIndex !== -1) {
-                this.callStack.push(this.currentLineIndex + 1); // Remember where we came from
+                this.callStack.push(this.currentLineIndex + 1); 
                 this.currentLineIndex = targetIndex; 
             } else {
                 this.printLine("?LINE NOT FOUND ERROR");
@@ -1190,10 +1304,9 @@ const Parser = {
                 this.printLine("READY.");
             }
         }
-        // NEW COMMAND: RETURN (Ends a GOSUB block and goes back to where it was called)
         else if (cmd === "RETURN") {
             if (this.callStack.length > 0) {
-                this.currentLineIndex = this.callStack.pop(); // Jump back
+                this.currentLineIndex = this.callStack.pop(); 
             } else {
                 this.printLine("?RETURN WITHOUT GOSUB ERROR");
                 this.isRunning = false;
