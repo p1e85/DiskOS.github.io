@@ -1,0 +1,154 @@
+/* ==========================================
+   GLOBAL VARIABLES & BODY RESET
+   ========================================== */
+:root { 
+    --bg-color: #050505; 
+    --crt-border: #1a1a1a; 
+}
+
+body, html {
+    margin: 0; 
+    padding: 0; 
+    width: 100%; 
+    height: 100%; 
+    height: 100dvh; 
+    background-color: var(--bg-color); 
+    display: flex;
+    flex-direction: column; 
+    justify-content: center; 
+    align-items: center;
+    font-family: monospace; 
+    overflow: hidden;
+    transition: padding-top 0.2s ease, justify-content 0.2s;
+}
+
+/* Disables touch gestures (like pinch-to-zoom) when a .diskPAD game is loaded */
+body.pad-active { 
+    touch-action: none; 
+}
+
+/* ==========================================
+   CRT MONITOR STYLES
+   ========================================== */
+#monitor {
+    position: relative; 
+    background-color: #000;
+    border: 24px solid var(--crt-border); 
+    border-radius: 16px;
+    padding: 10px
+    box-shadow: 0 0 50px rgba(0,0,0,0.8), inset 0 0 10px #000;
+    overflow: hidden; 
+    box-sizing: border-box;
+    width: 100%; 
+    max-width: 688px; 
+    transition: transform 0.2s ease;
+}
+
+canvas { 
+    display: block; 
+    width: 100%; 
+    height: auto; 
+    image-rendering: pixelated; 
+}
+
+.scanlines {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.1));
+    background-size: 100% 4px; 
+    pointer-events: none; 
+    z-index: 5;
+}
+
+.glass-glare {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    box-shadow: inset 0 0 40px rgba(255, 176, 0, 0.1); 
+    border-radius: 4px; 
+    pointer-events: none; 
+    z-index: 5;
+}
+
+/* ==========================================
+   THE TRANSPARENT MOBILE KEYBOARD OVERLAY
+   ========================================== */
+#mobile-keyboard {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    width: 100%; height: 100%; 
+    opacity: 0.01; 
+    z-index: 10; 
+    border: none; 
+    outline: none; 
+    resize: none;
+    color: transparent; 
+    background: transparent;
+}
+
+/* Pass touches directly through to the canvas when a game is running */
+body.pad-active #mobile-keyboard { 
+    pointer-events: none; 
+}
+
+/* ==========================================
+   ON-SCREEN GAMEPAD STYLES (.diskPAD)
+   ========================================== */
+#gamepad {
+    display: none; 
+    width: 100%; 
+    max-width: 688px; 
+    height: 120px; 
+    margin-top: 10px;
+    justify-content: space-between; 
+    align-items: center; 
+    padding: 0 20px;
+    box-sizing: border-box; 
+    user-select: none;
+}
+
+.pad-section { 
+    display: flex; 
+    gap: 15px; 
+    align-items: center; 
+}
+
+.btn {
+    background-color: #333; 
+    border: 4px solid #1a1a1a; 
+    border-radius: 50%;
+    color: #FFB000; 
+    font-weight: bold; 
+    font-size: 20px; 
+    display: flex;
+    justify-content: center; 
+    align-items: center;
+    box-shadow: 0 4px 0 #111, inset 0 -4px 10px rgba(0,0,0,0.5); 
+    cursor: pointer;
+}
+
+.btn:active { 
+    transform: translateY(4px); 
+    box-shadow: 0 0 0 #111, inset 0 4px 10px rgba(0,0,0,0.8); 
+}
+
+.btn-dpad { width: 60px; height: 60px; border-radius: 10px; }
+.btn-action { width: 70px; height: 70px; }
+.btn-small { width: 45px; height: 45px; font-size: 12px; background-color: #522; }
+
+/* ==========================================
+   VERTICAL MOBILE EXCEPTIONS & RESPONSIVENESS
+   ========================================== */
+@media (max-width: 700px) and (orientation: portrait) {
+    #monitor { border-width: 10px; 
+         padding: 4px;
+         max-width: 96vw; }
+    #gamepad { max-width: 96vw; padding: 0 10px; }
+    
+    /* Push the monitor to the top of the screen when the mobile keyboard opens */
+    body.typing-mode { 
+        justify-content: flex-start !important; 
+        padding-top: 5vh; 
+    }
+    
+    /* Hide the gamepad to save screen space when typing */
+    body.typing-mode #gamepad { 
+        display: none !important; 
+    }
+}
