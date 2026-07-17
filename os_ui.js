@@ -1,3 +1,6 @@
+import { Parser } from './os_parser.js';
+import { APU } from './os_audio.js'; // Import APU
+
 // ==========================================
 // SYSTEM VARIABLES & HARDWARE INIT
 // ==========================================
@@ -51,6 +54,7 @@ overlay.addEventListener('keydown', (e) => {
 // PHYSICAL KEYBOARD I/O (DESKTOP)
 // ==========================================
 window.addEventListener('keydown', (e) => {
+    APU.init(); // <--- Add this! Initialize audio on user gesture
     const blockedKeys = ["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
     if (blockedKeys.includes(e.code) && document.body.classList.contains('pad-active')) {
         e.preventDefault();
@@ -75,6 +79,7 @@ const handlePointer = (e, isActive) => {
 };
 
 monitor.addEventListener('mousedown', (e) => {
+    APU.init(); // <--- Add this! Initialize audio on user gesture
     if (!document.body.classList.contains('pad-active')) overlay.focus();
     handlePointer(e, true);
 });
