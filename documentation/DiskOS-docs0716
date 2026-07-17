@@ -1,0 +1,37 @@
+# DiskOS V1.8 Technical Documentation
+
+**Author:** P1 Creations | **Status:** V1.8 Modular
+
+---
+
+## 1. Overview
+DiskOS V1.8 is a proprietary 8-bit browser-based game engine and OS environment. It uses a modular ES6 architecture to manage hardware-level tasks through a virtualized environment.
+
+## 2. Hardware Specifications
+* **Grid:** 64 x 32 (2048 cells).
+* **Coordinates:** (0,0) Top-Left to (63,31) Bottom-Right.
+* **Render Loop:** 60FPS (20 instructions/frame limit).
+* **Colors:** Hex codes or Keywords (RED, BLUE, AMBER, GREEN, BLACK, WHITE, YELLOW, PURPLE, CYAN).
+
+## 3. Programming Language (.diskCODE)
+Syntax is space-separated BASIC-style logic.
+
+* **Core:** REM, PRINT, INPUT, VAR, DIM, GOTO, GOSUB, RETURN, FOR/NEXT, WAIT, END.
+* **Graphics:** PLOT, DRAW_BOX, SCROLL, PEEK/POKE, DEF_SPRITE/DRAW_SPRITE.
+* **Audio:** BEEP <freq> <dms>, PLAY <note> <dms>.
+
+## 4. Theming & Input (.diskGUI / .diskPAD)
+* **.diskGUI:** CSS-like scripts for theming (PAGE_BG, TEXT_COLOR) and menu creation (DEF_MENU/DEF_ITEM).
+* **.diskPAD:** Compiles mobile touch layouts (PRESET DPAD_CROSS, CUSTOM_BTN).
+
+## 5. System Commands
+* `----`: Toggle Raw Mode.
+* `$FILE`: Management commands (SAVE, LOAD, EXPORT, IMPORT, MOUNT, DIR).
+* `$EDIT`: COPY/PASTE code buffers.
+
+## 6. Modular Kernel Structure
+* **os_memory.js:** RAM state storage.
+* **os_display.js:** GPU rendering engine.
+* **os_audio.js:** APU tone synthesis.
+* **os_cpu.js:** Logic interpreter & execution stack.
+* **os_terminal.js:** CLI and file routing logic.
