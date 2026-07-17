@@ -5,7 +5,7 @@ import { CPU } from './os_cpu.js';
 import { CLI } from './os_terminal.js';
 
 // API Bridge for backwards compatibility with os_hardware.js and os_kernel.js
-window.Parser = {
+export const Parser = {
     // Read-Only State Getters
     get isRunning() { return RAM.isRunning; },
     get waitingForTimer() { return RAM.waitingForTimer; },
