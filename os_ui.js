@@ -2,8 +2,7 @@
 // SYSTEM VARIABLES & HARDWARE INIT
 // ==========================================
 const canvas = document.getElementById('screen');
-// OPTIMIZATION: alpha: false speeds up rendering for solid-background engines
-const ctx = canvas.getContext('2d', { alpha: false }); 
+const ctx = canvas.getContext('2d', { alpha: false }); // Hardware acceleration optimization
 const overlay = document.getElementById('mobile-keyboard');
 const monitor = document.getElementById('monitor');
 
@@ -19,13 +18,11 @@ let cursorVisible = true;
 overlay.addEventListener('focus', () => document.body.classList.add('typing-mode'));
 overlay.addEventListener('blur', () => {
     document.body.classList.remove('typing-mode');
-    // Persistent Focus Fallback
     if (document.body.classList.contains('typing-mode')) {
         setTimeout(() => overlay.focus({ preventScroll: true }), 50);
     }
 });
 
-// Force focus lock for mobile keyboard
 setInterval(() => {
     if (document.activeElement !== overlay) overlay.focus({ preventScroll: true });
 }, 500);
@@ -39,7 +36,6 @@ overlay.addEventListener('paste', (e) => {
 overlay.addEventListener('input', (e) => {
     const val = e.target.value;
     if (!val) return;
-    
     val.length === 1 ? Parser.handleKey(val) : Parser.pasteFromClipboard(val);
     overlay.value = ""; 
 });
@@ -116,27 +112,22 @@ window.addEventListener('drop', (e) => {
 // MAIN RENDER LOOP (60 FPS)
 // ==========================================
 function render() {
-    // Engine Instruction Execution
     if (Parser.isRunning) {
-        for (let i = 0; i < 20 && Parser.isRunning && !Parser.waitingForTimer; i++) {
+        for (let i = 0; i < 20 && Parser.isRunning && !Parser.waitingForTimer && !Parser.waitingForInput; i++) {
             Parser.executeStep();
         }
     }
     
-    // Clear Screen
     ctx.fillStyle = Parser.systemBgColor;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // NEW: Inject dynamic styling from the OS Theme Parser
     ctx.font = `${Parser.fontStyle} ${Parser.fontWeight} 16px "${Parser.fontFamily}"`;
     ctx.textBaseline = "top";
     
-    // VRAM Grid Traversal
     for (let y = 0; y < Parser.rows; y++) {
-        const cy = y * CELL_HEIGHT; // Cached Y math
-        
+        const cy = y * CELL_HEIGHT;
         for (let x = 0; x < Parser.cols; x++) {
-            const cx = x * CELL_WIDTH; // Cached X math
+            const cx = x * CELL_WIDTH;
             const cell = Parser.vram[Parser.getIndex(x, y)];
             
             if (cell.bg !== Parser.systemBgColor) {
@@ -148,7 +139,6 @@ function render() {
                 ctx.fillStyle = cell.fg;
                 ctx.fillText(cell.char, cx, cy);
                 
-                // NEW: Custom rendering for Underline and Strikethrough
                 if (Parser.textDecor === 'UNDERLINE') {
                     ctx.fillRect(cx, cy + 17, CELL_WIDTH, 2);
                 } else if (Parser.textDecor === 'STRIKE') {
@@ -158,16 +148,13 @@ function render() {
         }
     }
     
-    // Cursor Blink Math
     blinkTimer = (blinkTimer + 1) % 61;
     if (blinkTimer === 30) cursorVisible = !cursorVisible;
     
-    // Draw Cursor
     if (!Parser.isRunning && cursorVisible) {
         const cx = Parser.cursorX * CELL_WIDTH;
         const cy = Parser.cursorY * CELL_HEIGHT;
         
-        // NEW: Decoupled independent cursor color
         ctx.fillStyle = Parser.cursorColor; 
         ctx.fillRect(cx, cy, CELL_WIDTH, CELL_HEIGHT);
         

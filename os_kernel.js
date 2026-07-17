@@ -6,9 +6,7 @@
  * ==============================================================
  */
 
-import { Parser } from './os_parser.js'; // Import the Parser module
-
-export Kernel = {
+export const Kernel = {
     // ==========================================
     // 1. KERNEL STATE & FILE SYSTEM INIT
     // ==========================================
