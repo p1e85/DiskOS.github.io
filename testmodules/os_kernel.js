@@ -17,78 +17,61 @@ const Kernel = {
     // 2. VIRTUAL FILE SYSTEM (LOCAL STORAGE)
     // ==========================================
     
-    virtualSave: function(filename, payload) {
-        let key = this.activeDir + "/" + filename;
+    virtualSave(filename, payload) {
+        const key = `${this.activeDir}/${filename}`;
         try {
             localStorage.setItem(key, payload);
         } catch (e) {
             console.error("Virtual Drive Full or Disabled", e);
-            if (typeof Parser !== 'undefined') {
-                Parser.printLine("?VIRTUAL DRIVE ERROR (QUOTA EXCEEDED)");
-            }
+            Parser?.printLine("?VIRTUAL DRIVE ERROR (QUOTA EXCEEDED)");
         }
     },
 
-    virtualLoad: function(filename) {
-        let key = this.activeDir + "/" + filename;
-        return localStorage.getItem(key);
+    virtualLoad(filename) {
+        return localStorage.getItem(`${this.activeDir}/${filename}`);
     },
 
-    mountDir: function(dirname) {
+    mountDir(dirname) {
         this.activeDir = dirname;
-        let files = [];
-        let prefix = this.activeDir + "/";
+        const prefix = `${this.activeDir}/`;
         
-        for (let i = 0; i < localStorage.length; i++) {
-            let key = localStorage.key(i);
-            if (key.startsWith(prefix)) {
-                files.push(key.substring(prefix.length));
-            }
-        }
-        return files;
+        return Object.keys(localStorage)
+            .filter(key => key.startsWith(prefix))
+            .map(key => key.substring(prefix.length));
     },
 
     // ==========================================
     // 3. PHYSICAL HARDWARE I/O (DEVICE STORAGE)
     // ==========================================
     
-    physicalExport: function(filename, payload) {
+    physicalExport(filename, payload) {
         const blob = new Blob([payload], { type: "application/octet-stream" });
         const url = URL.createObjectURL(blob);
-        
         const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = url;
-        a.download = filename;
         
+        Object.assign(a, { style: "display: none", href: url, download: filename });
         document.body.appendChild(a);
         a.click();
         
         setTimeout(() => {
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
+            a.remove(); // Modern replacement for document.body.removeChild(a)
+            URL.revokeObjectURL(url);
         }, 100);
     },
 
-    triggerImport: function() {
+    triggerImport() {
         const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = '.diskCODE,.diskGUI,.diskPAD,.diskROM,.txt'; 
+        Object.assign(input, { type: 'file', accept: '.diskCODE,.diskGUI,.diskPAD,.diskROM,.txt' });
         
         input.onchange = e => {
             const file = e.target.files[0];
             if (!file) {
-                if (typeof Parser !== 'undefined') {
-                    Parser.printLine("?IMPORT CANCELLED");
-                    Parser.printLine("READY.");
-                }
+                Parser?.printLine("?IMPORT CANCELLED\nREADY.");
                 return;
             }
             
             const reader = new FileReader();
-            reader.onload = event => {
-                this.processImport(event.target.result, file.name);
-            };
+            reader.onload = event => this.processImport(event.target.result, file.name);
             reader.readAsText(file);
         };
         
@@ -99,50 +82,41 @@ const Kernel = {
     // 4. THE DISPATCHER
     // ==========================================
 
-    processImport: function(content, filename) {
+    processImport(content, filename) {
         const ext = filename.split('.').pop().toUpperCase();
 
         // If it's a P1 Creations Cartridge, send it to the unpacker
         if (ext === "DISKROM") {
-            this.unpackROM(content);
-            return;
+            return this.unpackROM(content);
         }
 
         // Otherwise, handle as a standard OS payload
         this.virtualSave(filename, content);
         
-        if (typeof Parser !== 'undefined') {
-            Parser.printLine("IMPORTED " + filename + " TO DISK.");
-            Parser.processFileContent(content, filename);
-        }
+        Parser?.printLine(`IMPORTED ${filename} TO DISK.`);
+        Parser?.processFileContent(content, filename);
     },
 
     // Custom P1 Creations ROM Unpacker 
-    unpackROM: function(romText) {
-        if (typeof Parser !== 'undefined') Parser.printLine("UNPACKING CARTRIDGE...");
+    unpackROM(romText) {
+        Parser?.printLine("UNPACKING CARTRIDGE...");
         
         const chunks = romText.split('===FILE: ');
         let filesInstalled = 0;
 
         chunks.forEach(chunk => {
-            if (chunk.trim() === "") return;
-            
             const splitIndex = chunk.indexOf('===');
-            if (splitIndex === -1) return; // Skip invalid formats
+            if (!chunk.trim() || splitIndex === -1) return; // Skip invalid formats
             
             // Isolate filename and payload
             const fileName = chunk.substring(0, splitIndex).trim();
             const fileData = chunk.substring(splitIndex + 3).trim();
             
             this.virtualSave(fileName, fileData);
-            
-            if (typeof Parser !== 'undefined') Parser.printLine("INSTALLED: " + fileName);
+            Parser?.printLine(`INSTALLED: ${fileName}`);
             filesInstalled++;
         });
         
-        if (typeof Parser !== 'undefined') {
-            Parser.printLine("ROM INSTALL COMPLETE (" + filesInstalled + " FILES).");
-            Parser.printLine("READY.");
-        }
+        Parser?.printLine(`ROM INSTALL COMPLETE (${filesInstalled} FILES).\nREADY.`);
     }
 };
