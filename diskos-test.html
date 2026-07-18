@@ -23,21 +23,21 @@
     </div>
 
 <!-- Order matters! Load Memory, Display, Audio, CPU first -->
-<script type="module" src="os_memory.js"></script>
-<script type="module" src="os_audio.js"></script>
-<script type="module" src="os_display.js"></script>
-<script type="module" src="os_cpu.js"></script>
-<script type="module" src="os_terminal.js"></script>
+<script type="module" src="testModules/os_memory.js"></script>
+<script type="module" src="testModules/os_audio.js"></script>
+<script type="module" src="testModules/os_display.js"></script>
+<script type="module" src="testModules/os_cpu.js"></script>
+<script type="module" src="testModules/os_terminal.js"></script>
 
 <!-- Added your new Studio module to the stack -->
-<script type="module" src="os_studio.js"></script>
+<script type="module" src="testModules/os_studio.js"></script>
 
 <!-- The Parser Motherboard links them all -->
-<script type="module" src="os_parser.js"></script>
+<script type="module" src="testModules/os_parser.js"></script>
 
 <!-- The Kernel and UI depend on the Parser -->
-<script type="module" src="os_kernel.js"></script>
-<script type="module" src="os_ui.js"></script>
+<script type="module" src="testmodules/os_kernel.js"></script>
+<script type="module" src="testModules/os_ui.js"></script>
 
 </body>
 </html>
