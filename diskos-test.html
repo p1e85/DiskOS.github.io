@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>testing DiskOS V1.8</title>
-    <link rel="stylesheet" href="testModules/os_styles.css">
+    <link rel="stylesheet" href="testmodules/os_styles.css">
 </head>
 <body>
 
@@ -23,21 +23,21 @@
     </div>
 
 <!-- Order matters! Load Memory, Display, Audio, CPU first -->
-<script type="module" src="testModules/os_memory.js"></script>
-<script type="module" src="testModules/os_audio.js"></script>
-<script type="module" src="testModules/os_display.js"></script>
-<script type="module" src="testModules/os_cpu.js"></script>
-<script type="module" src="testModules/os_terminal.js"></script>
+<script type="module" src="testmodules/os_memory.js"></script>
+<script type="module" src="testmodules/os_audio.js"></script>
+<script type="module" src="testmodules/os_display.js"></script>
+<script type="module" src="testmodules/os_cpu.js"></script>
+<script type="module" src="testmodules/os_terminal.js"></script>
 
 <!-- Added your new Studio module to the stack -->
-<script type="module" src="testModules/os_studio.js"></script>
+<script type="module" src="testmodules/os_studio.js"></script>
 
 <!-- The Parser Motherboard links them all -->
-<script type="module" src="testModules/os_parser.js"></script>
+<script type="module" src="testmodules/os_parser.js"></script>
 
 <!-- The Kernel and UI depend on the Parser -->
-<script type="module" src="testModules/os_kernel.js"></script>
-<script type="module" src="testModules/os_ui.js"></script>
+<script type="module" src="testmodules/os_kernel.js"></script>
+<script type="module" src="testmodules/os_ui.js"></script>
 
 </body>
 </html>
