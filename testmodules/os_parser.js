@@ -1,7 +1,7 @@
 import { CLI } from './os_terminal.js';
 import { STUDIO } from './os_studio.js';
 
-export const canvas = document.getElementById('screen');
+const canvas = document.getElementById('screen');
 const mobileKeyboard = document.getElementById('mobile-keyboard');
 
 // =========================================================
