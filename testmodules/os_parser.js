@@ -57,19 +57,13 @@ window.addEventListener('keydown', (e) => {
         return; 
     }
 
-    // Toggle Studio
-    if (e.key === "Escape") {
-        if (STUDIO.isOpen) STUDIO.close();
-        else STUDIO.open();
-        return; 
-    }
-
     // Normal typing (only if not running and studio closed)
     if (!RAM.isRunning && !STUDIO.isOpen) {
         if (["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.code)) {
             e.preventDefault();
         }
-        if (e.key.length === 1 || e.key === "Backspace" || e.key === "Enter") {
+        // Exclude Escape from normal terminal typing so it doesn't print garbage characters
+        if (e.key !== "Escape" && (e.key.length === 1 || e.key === "Backspace" || e.key === "Enter")) {
             CLI.handleKey(e.key);
         }
     }
