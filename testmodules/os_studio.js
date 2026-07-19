@@ -110,22 +110,16 @@ export const STUDIO = {
         const colorEditor = document.getElementById('color-editor');
         
         // Refresh Palette Swatches
-// Refresh Palette Swatches
         const renderPaletteUI = () => {
             palettePicker.innerHTML = "";
-            
-            // This safely checks if RAM.cart and RAM.cart.palette exist before trying to loop
-            if (!RAM.cart || !RAM.cart.palette) {
-                console.error("CRITICAL ERROR: RAM.cart.palette is missing from os_memory.js!");
-                return;
-            }
+            if (!RAM.cart || !RAM.cart.palette) return;
 
             RAM.cart.palette.forEach((hex, index) => {
                 let swatch = document.createElement('div');
                 swatch.style.cssText = `width:100%; aspect-ratio: 1/1; background:${hex}; cursor:pointer; border: 2px solid ${index === this.activeColor ? '#FFF' : '#000'};`;
                 swatch.addEventListener('click', () => {
                     this.activeColor = index;
-                    colorEditor.value = RAM.cart.palette[index]; 
+                    colorEditor.value = RAM.cart.palette[index]; // Update hex editor
                     renderPaletteUI();
                 });
                 palettePicker.appendChild(swatch);
@@ -135,9 +129,9 @@ export const STUDIO = {
 
         // Load Sprite into Grid
         const loadSpriteToGrid = () => {
-            const spriteData = RAM.vram.sprites[this.currentSpriteId];
+            const spriteData = RAM.cart.sprites[this.currentSpriteId];
             Array.from(grid.children).forEach((px, i) => {
-                px.style.background = RAM.vram.palette[spriteData[i]];
+                px.style.background = RAM.cart.palette[spriteData[i]];
             });
         };
 
@@ -146,21 +140,21 @@ export const STUDIO = {
 
         // Color Hex Editor Event
         colorEditor.addEventListener('input', (e) => {
-            RAM.vram.palette[this.activeColor] = e.target.value.toUpperCase();
+            RAM.cart.palette[this.activeColor] = e.target.value.toUpperCase();
             renderPaletteUI();
             loadSpriteToGrid(); // Instantly update active sprite drawing
         });
 
         // Preset Dropdown Event
         document.getElementById('palette-preset').addEventListener('change', (e) => {
-            RAM.vram.palette = [...PRESETS[e.target.value]];
+            RAM.cart.palette = [...PRESETS[e.target.value]];
             renderPaletteUI();
             loadSpriteToGrid();
         });
 
         // Save .diskPalette
         document.getElementById('btn-save-pal').addEventListener('click', () => {
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(RAM.vram.palette));
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(RAM.cart.palette));
             const dl = document.createElement('a');
             dl.setAttribute("href", dataStr);
             dl.setAttribute("download", "custom.diskPalette");
@@ -179,7 +173,7 @@ export const STUDIO = {
                     try {
                         const content = JSON.parse(readerEvent.target.result);
                         if(Array.isArray(content) && content.length === 16) {
-                            RAM.vram.palette = content;
+                            RAM.cart.palette = content;
                             renderPaletteUI(); loadSpriteToGrid();
                         } else alert("Invalid .diskPalette format.");
                     } catch(err) { alert("Failed to parse file."); }
@@ -193,16 +187,17 @@ export const STUDIO = {
         // Build 8x8 Sprite Grid
         for (let i = 0; i < 64; i++) {
             let px = document.createElement('div');
-            px.style.cssText = `width:100%; height:100%; background:${RAM.vram.palette[0]}; user-select:none;`;
+            // This was the offending line! It now uses RAM.cart safely.
+            px.style.cssText = `width:100%; height:100%; background:${RAM.cart.palette[0]}; user-select:none;`;
             
             const paint = (e) => {
                 if (e.buttons === 1) { 
-                    RAM.vram.sprites[this.currentSpriteId][i] = this.activeColor; 
-                    px.style.background = RAM.vram.palette[this.activeColor]; 
+                    RAM.cart.sprites[this.currentSpriteId][i] = this.activeColor; 
+                    px.style.background = RAM.cart.palette[this.activeColor]; 
                 } 
                 else if (e.buttons === 2) { 
-                    RAM.vram.sprites[this.currentSpriteId][i] = 0; 
-                    px.style.background = RAM.vram.palette[0]; 
+                    RAM.cart.sprites[this.currentSpriteId][i] = 0; 
+                    px.style.background = RAM.cart.palette[0]; 
                 }
             };
             px.addEventListener('mousedown', paint); px.addEventListener('mouseenter', paint);
@@ -219,11 +214,11 @@ export const STUDIO = {
         });
 
         document.getElementById('studio-clear').addEventListener('click', () => {
-            RAM.vram.sprites[this.currentSpriteId].fill(0); loadSpriteToGrid();
+            RAM.cart.sprites[this.currentSpriteId].fill(0); loadSpriteToGrid();
         });
 
         // -----------------------------------------
-        // MAP EDITOR LOGIC (Prepped for VRAM)
+        // MAP EDITOR LOGIC 
         // -----------------------------------------
         const mapGrid = document.getElementById('map-grid');
         mapGrid.addEventListener('contextmenu', e => e.preventDefault()); 
@@ -237,12 +232,12 @@ export const STUDIO = {
             const paintMap = (e) => {
                 let tileId = parseInt(tileInput.value) || 0;
                 if (e.buttons === 1) { 
-                    RAM.vram.map[i] = tileId; cell.innerText = tileId;
+                    RAM.cart.map[i] = tileId; cell.innerText = tileId;
                     cell.style.background = tileId > 0 ? '#333' : '#000';
                     cell.style.color = tileId > 0 ? '#0f0' : '#FFF';
                 } 
                 else if (e.buttons === 2) { 
-                    RAM.vram.map[i] = 0; cell.innerText = "0"; 
+                    RAM.cart.map[i] = 0; cell.innerText = "0"; 
                     cell.style.background = '#000'; cell.style.color = '#FFF';
                 }
             };
@@ -252,7 +247,7 @@ export const STUDIO = {
         }
 
         document.getElementById('map-clear').addEventListener('click', () => {
-            RAM.vram.map.fill(0); 
+            RAM.cart.map.fill(0); 
             Array.from(mapGrid.children).forEach(cell => { 
                 cell.innerText = "0"; cell.style.background = '#000'; cell.style.color = '#FFF'; 
             });
