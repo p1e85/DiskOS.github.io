@@ -49,6 +49,12 @@ const mobileKeyboard = document.getElementById('mobile-keyboard');
 
 // 1. Desktop Input & Hotkeys
 window.addEventListener('keydown', (e) => {
+    // THE FIX: If the user is typing inside the hidden mobile keyboard, 
+    // or inside the Studio's text boxes, ignore the global window keydown entirely!
+    if (e.target === mobileKeyboard || e.target.tagName.toLowerCase() === 'input') {
+        return; 
+    }
+
     // Halt running code (PC)
     if (e.key === "End" && RAM.isRunning) {
         RAM.isRunning = false;
