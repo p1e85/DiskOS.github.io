@@ -62,8 +62,12 @@ window.addEventListener('keydown', (e) => {
         if (["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.code)) {
             e.preventDefault();
         }
-        // Exclude Escape from normal terminal typing so it doesn't print garbage characters
-        if (e.key !== "Escape" && (e.key.length === 1 || e.key === "Backspace" || e.key === "Enter")) {
+        
+        // Allowed non-character keys
+        const isSpecialKey = ["Backspace", "Enter", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key);
+        
+        // Filter out mobile predictive text signatures ("Unidentified")
+        if (e.key !== "Escape" && e.key !== "Unidentified" && (e.key.length === 1 || isSpecialKey)) {
             CLI.handleKey(e.key);
         }
     }
@@ -71,10 +75,9 @@ window.addEventListener('keydown', (e) => {
 
 // 2. Mobile Input
 if (canvas && mobileKeyboard) {
-    // Bring up the hidden keyboard on tap
+    // Detect tap type
     canvas.addEventListener('pointerdown', (e) => {
         if (!RAM.isRunning && !STUDIO.isOpen) {
-            // Calculate canvas scale in case CSS stretches it
             const rect = canvas.getBoundingClientRect();
             const scaleX = canvas.width / rect.width;
             const scaleY = canvas.height / rect.height;
@@ -82,16 +85,21 @@ if (canvas && mobileKeyboard) {
             const touchX = Math.floor((e.clientX - rect.left) * scaleX);
             const touchY = Math.floor((e.clientY - rect.top) * scaleY);
             
-            // Snap the cursor to where they tapped (assuming setCursor exists in your CLI)
             if (typeof CLI.setCursor === "function") {
                 CLI.setCursor(touchX, touchY);
             }
             
-            mobileKeyboard.focus();
+            // THE FIX: Only pull up the hidden keyboard if they touched the screen physically.
+            // If they clicked with a mouse, blur it so it doesn't double-fire inputs!
+            if (e.pointerType === "touch" || e.pointerType === "pen") {
+                mobileKeyboard.focus();
+            } else {
+                mobileKeyboard.blur();
+            }
         }
     });
 
-    // Intercept predictive text and mobile keys
+    // Intercept mobile keys
     mobileKeyboard.addEventListener('input', (e) => {
         if (!RAM.isRunning && !STUDIO.isOpen) {
             let val = mobileKeyboard.value;
@@ -105,7 +113,7 @@ if (canvas && mobileKeyboard) {
         }
     });
 
-    // Catch explicit backspace/enter on mobile
+    // Catch explicit system keys on mobile
     mobileKeyboard.addEventListener('keydown', (e) => {
         if (!RAM.isRunning && !STUDIO.isOpen) {
             if (e.key === "Backspace" || e.key === "Enter") {
