@@ -1,11 +1,13 @@
 export const RAM = {
-    cols: 64, rows: 32,                 
-    cursorX: 0, cursorY: 0,             
-    vram: [],                           
+    cols: 64, 
+    rows: 32,                 
+    cursorX: 0, 
+    cursorY: 0,             
+    vram: [], // Your terminal text buffer                 
     textBuffer: [],                     
     rawBuffer: [],                      
     variables: {},                      
-    sprites: {},                        
+    sprites: {}, // Old string-based sprites                        
     customMenus: {}, 
     
     callStack: [],   
@@ -13,11 +15,16 @@ export const RAM = {
     
     isRunning: false,                   
     currentLineIndex: 0,                
-    waitingForKey: false, targetVar: "", 
+    waitingForKey: false, 
+    targetVar: "", 
     waitingForTimer: false, 
-    waitingForInput: false, inputVar: "", inputBuffer: "",           
+    waitingForInput: false, 
+    inputVar: "", 
+    inputBuffer: "",           
     keysDown: {},                       
-    touchActive: 0, touchX: 0, touchY: 0, 
+    touchActive: 0, 
+    touchX: 0, 
+    touchY: 0, 
 
     isCapturingRaw: false,              
     rawFileType: "RAW", 
@@ -30,7 +37,9 @@ export const RAM = {
     fontStyle: 'normal',
     textDecor: 'none',
 
-// Video RAM for .diskCart data
+    // ----------------------------------------
+    // CARTRIDGE DATA (.diskCart memory)
+    // ----------------------------------------
     cart: {
         // The active 16-color system palette
         palette: [

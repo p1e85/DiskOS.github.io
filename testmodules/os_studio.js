@@ -110,19 +110,27 @@ export const STUDIO = {
         const colorEditor = document.getElementById('color-editor');
         
         // Refresh Palette Swatches
+// Refresh Palette Swatches
         const renderPaletteUI = () => {
             palettePicker.innerHTML = "";
-            RAM.vram.palette.forEach((hex, index) => {
+            
+            // This safely checks if RAM.cart and RAM.cart.palette exist before trying to loop
+            if (!RAM.cart || !RAM.cart.palette) {
+                console.error("CRITICAL ERROR: RAM.cart.palette is missing from os_memory.js!");
+                return;
+            }
+
+            RAM.cart.palette.forEach((hex, index) => {
                 let swatch = document.createElement('div');
                 swatch.style.cssText = `width:100%; aspect-ratio: 1/1; background:${hex}; cursor:pointer; border: 2px solid ${index === this.activeColor ? '#FFF' : '#000'};`;
                 swatch.addEventListener('click', () => {
                     this.activeColor = index;
-                    colorEditor.value = RAM.vram.palette[index]; // Update hex editor
+                    colorEditor.value = RAM.cart.palette[index]; 
                     renderPaletteUI();
                 });
                 palettePicker.appendChild(swatch);
             });
-            colorEditor.value = RAM.vram.palette[this.activeColor];
+            colorEditor.value = RAM.cart.palette[this.activeColor];
         };
 
         // Load Sprite into Grid
