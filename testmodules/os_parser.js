@@ -119,15 +119,18 @@ if (canvas && mobileKeyboard) {
         }
     });
 
-    // Catch explicit system keys on mobile
+ // Catch explicit system keys and arrow keys on mobile keyboard
     mobileKeyboard.addEventListener('keydown', (e) => {
         if (!RAM.isRunning && !STUDIO.isOpen) {
-            if (e.key === "Backspace" || e.key === "Enter") {
+            const systemKeys = ["Backspace", "Enter", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
+            if (systemKeys.includes(e.key)) {
                 CLI.handleKey(e.key);
                 e.preventDefault(); 
             }
         }
     });
+
+
 
     // 3-Finger Tap to Break Code (Mobile)
     canvas.addEventListener('touchstart', (e) => {
