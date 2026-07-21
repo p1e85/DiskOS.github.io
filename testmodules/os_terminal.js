@@ -6,18 +6,25 @@ import { BIOS } from './os_bios.js';
 export const CLI = {
     _lastAction: 0,
 
-    _generatePayload() {
+    // V1.9 CART GENERATOR: Bundles Code + Sprites + Maps!
+    _generatePayload(type = "CODE") {
         if (RAM.rawBuffer.length > 0) return RAM.rawBuffer.join('\n');
-        // FIXED: Bumped to V1.9
-        return `TYPE: diskCODE\nCOMPATIBILITY: V1.9\n---\n` + RAM.textBuffer.map(t => `${t.line} ${t.code}`).join('\n');
+        
+        let payload = `TYPE: disk${type}\nCOMPATIBILITY: V1.9\n---\n`;
+        payload += RAM.textBuffer.map(t => `${t.line} ${t.code}`).join('\n');
+        
+        // If saving a Cartridge, append the art data at the bottom!
+        if (type === "CART") {
+            payload += `\n===SPRITES===\n${JSON.stringify(RAM.sprites || {})}`;
+            payload += `\n===MAPS===\n${JSON.stringify(RAM.maps || {})}`;
+        }
+        return payload;
     },
 
-    // NEW: Function to snap cursor on mobile/mouse tap
     setCursor(x, y) {
         if (!RAM.isRunning && !RAM.waitingForInput && !RAM.waitingForKey) {
             RAM.cursorX = Math.floor(x);
             RAM.cursorY = Math.floor(y);
-            // Ensure bounds
             if (RAM.cursorX < 0) RAM.cursorX = 0;
             if (RAM.cursorX >= RAM.cols) RAM.cursorX = RAM.cols - 1;
             if (RAM.cursorY < 0) RAM.cursorY = 0;
@@ -72,7 +79,6 @@ export const CLI = {
         
         if (RAM.isRunning) return;
         
-        // --- C64 ARROW KEY NAVIGATION ---
         if (key === "ArrowUp") { if (RAM.cursorY > 0) RAM.cursorY--; return; }
         if (key === "ArrowDown") { if (RAM.cursorY < RAM.rows - 1) RAM.cursorY++; return; }
         if (key === "ArrowLeft") { if (RAM.cursorX > 0) RAM.cursorX--; return; }
@@ -127,11 +133,14 @@ export const CLI = {
 
             if (menu === "FILE") {
                 if (action === "NEW") {
-                    RAM.textBuffer = []; RAM.variables = {}; RAM.sprites = {}; RAM.rawBuffer = []; RAM.customMenus = {};
+                    RAM.textBuffer = []; RAM.variables = {}; RAM.sprites = {}; RAM.maps = {}; RAM.rawBuffer = []; RAM.customMenus = {};
                     GPU.setPadMode(false); GPU.resetTheme(); GPU.printLine("MEMORY CLEARED. THEME RESET.");
                 } else if (action === "SAVE" || action === "EXPORT") {
-                    let filename = parts[2] ? parts[2].replace(/"/g, "") : "UNTITLED.diskCODE";
-                    let payload = this._generatePayload();
+                    // NEW DEFAULT: .diskCART instead of .diskCODE
+                    let filename = parts[2] ? parts[2].replace(/"/g, "") : "UNTITLED.diskCART";
+                    let ext = filename.split('.').pop().toUpperCase();
+                    let payload = this._generatePayload(ext === "DISKCART" ? "CART" : "CODE");
+                    
                     if (action === "SAVE") { Kernel.virtualSave(filename, payload); GPU.printLine(`SAVED ${filename} TO VIRTUAL DRIVE.`); } 
                     else { Kernel.physicalExport(filename, payload); GPU.printLine(`EXPORTING ${filename} TO DEVICE.`); }
                 } else GPU.printLine("--- FILE MENU ---\n  $FILE NEW\n  $FILE SAVE [FILENAME]\n  $FILE EXPORT [FILENAME]\n-----------------");
@@ -176,13 +185,9 @@ export const CLI = {
                 RAM.vram.forEach(cell => { cell.char = ' '; cell.bg = RAM.systemBgColor; });
                 RAM.cursorX = RAM.cursorY = 0; RAM.cursorY--; 
             } 
-            // FIXED: Removed the double cursor drop when closing BIOS
             else if (fwUpper === "SYS.MENU") {
-                if (typeof BIOS !== 'undefined') {
-                    BIOS.toggle();
-                } else {
-                    GPU.printLine("?SYS.MENU MODULE NOT LOADED");
-                }
+                if (typeof BIOS !== 'undefined') BIOS.toggle();
+                else GPU.printLine("?SYS.MENU MODULE NOT LOADED");
                 RAM.cursorY--;
             }   
             else if (fwUpper === "HELP") {
@@ -201,12 +206,14 @@ export const CLI = {
                 GPU.printLine("READY."); RAM.cursorY--;
             } 
             else if (fwUpper === "NEW") {
-                RAM.textBuffer = []; RAM.variables = {}; RAM.sprites = {}; RAM.rawBuffer = []; RAM.customMenus = {};
+                RAM.textBuffer = []; RAM.variables = {}; RAM.sprites = {}; RAM.maps = {}; RAM.rawBuffer = []; RAM.customMenus = {};
                 GPU.setPadMode(false); GPU.resetTheme(); GPU.printLine("MEMORY CLEARED. THEME RESET.\nREADY."); RAM.cursorY--;
             }
             else if (fwUpper === "SAVE" || fwUpper === "EXPORT") {
-                let filename = cmd.substring(fwUpper === "SAVE" ? 4 : 6).trim().replace(/"/g, "") || "UNTITLED.diskCODE";
-                let payload = this._generatePayload();
+                let filename = cmd.substring(fwUpper === "SAVE" ? 4 : 6).trim().replace(/"/g, "") || "UNTITLED.diskCART";
+                let ext = filename.split('.').pop().toUpperCase();
+                let payload = this._generatePayload(ext === "DISKCART" ? "CART" : "CODE");
+                
                 if (fwUpper === "SAVE") { Kernel.virtualSave(filename, payload); GPU.printLine("SAVED TO VIRTUAL DRIVE.\nREADY."); } 
                 else { Kernel.physicalExport(filename, payload); GPU.printLine("DOWNLOADING TO DEVICE...\nREADY."); }
                 if(RAM.rawBuffer.length > 0) RAM.rawBuffer = []; RAM.cursorY--;
@@ -223,10 +230,11 @@ export const CLI = {
                 let dirname = cmd.substring(5).trim().replace(/"/g, "") || "MASTER.diskDIR";
                 let files = Kernel.mountDir(dirname); GPU.printLine(`MOUNTED: ${dirname}`);
                 RAM.variables["SYS_FILE_COUNT"] = files.length; RAM.variables["SYS_FILES"] = files;
-                if (files.includes("MAIN.diskCODE")) {
-                    GPU.printLine("AUTO-BOOTING MAIN.diskCODE...");
-                    let mainContent = Kernel.virtualLoad("MAIN.diskCODE");
-                    if (mainContent) { this.processFileContent(mainContent, "MAIN.diskCODE"); CPU.runCode(); }
+                if (files.includes("MAIN.diskCODE") || files.includes("MAIN.diskCART")) {
+                    let mainFile = files.includes("MAIN.diskCART") ? "MAIN.diskCART" : "MAIN.diskCODE";
+                    GPU.printLine(`AUTO-BOOTING ${mainFile}...`);
+                    let mainContent = Kernel.virtualLoad(mainFile);
+                    if (mainContent) { this.processFileContent(mainContent, mainFile); CPU.runCode(); }
                 } else GPU.printLine("READY."); 
                 RAM.cursorY--;
             }
@@ -245,7 +253,8 @@ export const CLI = {
                     GPU.printLine(`STACKING ${filename}...`); let isPayload = false;
                     libContent.split('\n').forEach(line => {
                         line = line.replace(/[\u200B-\u200D\uFEFF]/g, '').trim();
-                        if (line === "---") { isPayload = true; return; }
+                        if (line === "---" || line === "===CODE===") { isPayload = true; return; }
+                        if (line.startsWith("===")) { isPayload = false; return; } // Stop reading if we hit sprites/maps
                         if (isPayload && line !== "") {
                             let p = line.split(" "), lNum = parseInt(p[0]);
                             if (!isNaN(lNum)) RAM.textBuffer.push({ line: lNum, code: line.substring(p[0].length).trim() });
@@ -264,25 +273,53 @@ export const CLI = {
         }
     },
 
+    // V1.9 CART PARSER: Reads Code, Sprites, and Maps accurately!
     processFileContent(fileContent, filename) {
         GPU.printLine(`LOADING ${filename}...`);
         let lines = fileContent.split('\n'), ext = filename.split('.').pop().toUpperCase();
+        
         if (ext === "DISKGUI" || ext === "DISKPAD") {
             RAM.rawFileType = ext; RAM.textBuffer = []; RAM.rawBuffer = [];
             lines.forEach(line => { line = line.replace(/[\u200B-\u200D\uFEFF]/g, '').trim(); if (line) RAM.rawBuffer.push(line); });
             GPU.printLine(`LOADED ${RAM.rawBuffer.length} RAW LINES.\nREADY.`); return; 
         }
-        let isPayload = false; RAM.rawFileType = "RAW"; RAM.rawBuffer = []; RAM.textBuffer = []; 
+        
+        RAM.rawFileType = "RAW"; 
+        RAM.rawBuffer = []; 
+        RAM.textBuffer = []; 
+        
+        // Clear memory for Cartridge loading
+        if (ext === "DISKCART") {
+            RAM.sprites = {}; 
+            RAM.maps = {};
+        }
+
+        let mode = "HEADER"; 
+        
         lines.forEach(line => {
-            line = line.replace(/[\u200B-\u200D\uFEFF]/g, '').trim();
-            if (line === "---") { isPayload = true; return; }
-            if (isPayload && line !== "") {
-                let parts = line.split(" "), lineNum = parseInt(parts[0]);
-                if (!isNaN(lineNum)) RAM.textBuffer.push({ line: lineNum, code: line.substring(parts[0].length).trim() });
+            let clean = line.replace(/[\u200B-\u200D\uFEFF]/g, '').trim();
+            
+            // Switch parsing modes based on section headers
+            if (clean === "---" || clean === "===CODE===") { mode = "CODE"; return; }
+            if (clean === "===SPRITES===") { mode = "SPRITES"; return; }
+            if (clean === "===MAPS===") { mode = "MAPS"; return; }
+            
+            if (mode === "CODE" && clean !== "") {
+                let parts = clean.split(" "), lineNum = parseInt(parts[0]);
+                if (!isNaN(lineNum)) RAM.textBuffer.push({ line: lineNum, code: clean.substring(parts[0].length).trim() });
+            }
+            else if (mode === "SPRITES" && clean !== "") {
+                try { RAM.sprites = JSON.parse(clean); } catch(e) {}
+            }
+            else if (mode === "MAPS" && clean !== "") {
+                try { RAM.maps = JSON.parse(clean); } catch(e) {}
             }
         });
+        
         RAM.textBuffer.sort((a, b) => a.line - b.line);
-        GPU.printLine(`LOADED ${RAM.textBuffer.length} LINES.\nREADY.`);
+        GPU.printLine(`LOADED ${RAM.textBuffer.length} LINES.`);
+        if (ext === "DISKCART") GPU.printLine("LOADED CART DATA.");
+        GPU.printLine("READY.");
     },
 
     pasteFromClipboard(text) {

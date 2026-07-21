@@ -7,7 +7,8 @@ export const RAM = {
     textBuffer: [],                     
     rawBuffer: [],                      
     variables: {},                      
-    sprites: {}, // Old string-based sprites                        
+    sprites: {},
+    maps: {},                       
     customMenus: {}, 
     
     callStack: [],   
