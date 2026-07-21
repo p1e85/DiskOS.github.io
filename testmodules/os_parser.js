@@ -47,7 +47,7 @@ STUDIO.init();
 const canvas = document.getElementById('screen');
 const mobileKeyboard = document.getElementById('mobile-keyboard');
 
-// 1. Desktop Input & Hotkeys
+// 1. Desktop Input & Hotkeys (SINGLE LISTENER NOW!)
 window.addEventListener('keydown', (e) => {
     // Ignore if typing in an input box or the hidden mobile keyboard
     if (e.target === mobileKeyboard || e.target?.tagName.toLowerCase() === 'input') {
@@ -65,50 +65,17 @@ window.addEventListener('keydown', (e) => {
     // Normal typing (only if not running and studio closed)
     if (!RAM.isRunning && !STUDIO.isOpen) {
         
-        // THE FIX 1: Fixed the array syntax (commas instead of ||)
+        // Block default browser actions for system keys
         const systemKeys = [" ", "Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Backspace", "Enter"];
         if (systemKeys.includes(e.key)) {
             e.preventDefault();
         }
         
-        // THE FIX 2: Stop double-firing from holding the key down!
+        // Stop double-firing from holding the key down
         if (e.repeat) return;
         
         // Route the key to the terminal
         if (e.key !== "Escape" && e.key !== "Unidentified" && (e.key.length === 1 || systemKeys.includes(e.key))) {
-            CLI.handleKey(e.key);
-        }
-    }
-});
-
-window.addEventListener('keydown', (e) => {
-    // Ignore if typing in an input box or the hidden mobile keyboard
-    if (e.target === mobileKeyboard || e.target?.tagName.toLowerCase() === 'input') {
-        return; 
-    }
-
-    // Halt running code (PC)
-    if (e.key === "End" && RAM.isRunning) {
-        RAM.isRunning = false;
-        CLI.printLine("?BREAK");
-        CLI.printLine("READY.");
-        return; 
-    }
-
-    // Normal typing (only if not running and studio closed)
-    if (!RAM.isRunning && !STUDIO.isOpen) {
-        
-        // THE FIX: Explicitly block default browser actions for these keys.
-        // This stops Backspace from triggering a phantom "Back" navigation event!
-        if (["Space" || "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Backspace", "Enter"].includes(e.key)) {
-            e.preventDefault();
-        }
-        
-        // Allowed non-character keys
-        const isSpecialKey = ["Backspace", "Enter", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key);
-        
-        // Route the key to the terminal
-        if (e.key !== "Escape" && e.key !== "Unidentified" && (e.key.length === 1 || isSpecialKey)) {
             CLI.handleKey(e.key);
         }
     }
@@ -130,8 +97,6 @@ if (canvas && mobileKeyboard) {
                 CLI.setCursor(touchX, touchY);
             }
             
-            // THE FIX: Only pull up the hidden keyboard if they touched the screen physically.
-            // If they clicked with a mouse, blur it so it doesn't double-fire inputs!
             if (e.pointerType === "touch" || e.pointerType === "pen") {
                 mobileKeyboard.focus();
             } else {
@@ -154,7 +119,7 @@ if (canvas && mobileKeyboard) {
         }
     });
 
- // Catch explicit system keys and arrow keys on mobile keyboard
+    // Catch explicit system keys and arrow keys on mobile keyboard
     mobileKeyboard.addEventListener('keydown', (e) => {
         if (!RAM.isRunning && !STUDIO.isOpen) {
             const systemKeys = ["Backspace", "Enter", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
@@ -164,8 +129,6 @@ if (canvas && mobileKeyboard) {
             }
         }
     });
-
-
 
     // 3-Finger Tap to Break Code (Mobile)
     canvas.addEventListener('touchstart', (e) => {

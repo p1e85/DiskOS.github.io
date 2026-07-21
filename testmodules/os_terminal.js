@@ -174,6 +174,15 @@ if (key === "Backspace" || key === "Enter") {
                 RAM.vram.forEach(cell => { cell.char = ' '; cell.bg = RAM.systemBgColor; });
                 RAM.cursorX = RAM.cursorY = 0; RAM.cursorY--; 
             } 
+            // NEW: The Hook for the BIOS!
+            else if (fwUpper === "SYS.MENU") {
+                if (typeof BIOS !== 'undefined') {
+                    BIOS.toggle();
+                } else {
+                    GPU.printLine("?SYS.MENU MODULE NOT LOADED");
+                }
+                RAM.cursorY--;
+            }   
             else if (fwUpper === "HELP") {
                 GPU.printLine("");
                 GPU.printLine("SEE MANUAL FOR COMMANDS."); GPU.printLine(""); RAM.cursorY--;
