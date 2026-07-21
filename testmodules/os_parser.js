@@ -4,6 +4,7 @@ import { GPU } from './os_display.js';
 import { CPU } from './os_cpu.js';
 import { CLI } from './os_terminal.js';
 import { STUDIO } from './os_studio.js';
+import { BIOS } from './os_bios.js';
 
 // API Bridge for backwards compatibility with os_hardware.js and os_kernel.js
 export const Parser = {
@@ -40,6 +41,7 @@ export const Parser = {
 APU.init();
 GPU.init();
 STUDIO.init();
+BIOS.init();
 
 // =========================================================
 // DESKTOP & MOBILE INPUT HANDLING
