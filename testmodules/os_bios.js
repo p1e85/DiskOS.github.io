@@ -181,18 +181,31 @@ export const BIOS = {
         }
     },
 
-    saveAndExit() {
+saveAndExit() {
         this.isOpen = false;
         this.overlay.style.display = "none";
         
-        // Apply Settings (E.g. Change UI Theme)
+        // 1. WIRE THE FIRMWARE THEME
         let themeIndex = this.settings['DISPLAY'].find(s => s.id === 'theme').selected;
         if (themeIndex === 0) RAM.systemColor = '#FFB000'; // Amber
         if (themeIndex === 1) RAM.systemColor = '#00FF00'; // Green
         if (themeIndex === 2) RAM.systemColor = '#00FFFF'; // Ice Blue
         if (themeIndex === 3) RAM.systemColor = '#FFFFFF'; // White
         
-        // Print reboot sequence to terminal
+        // 2. WIRE THE CRT SCANLINES
+        let crtIndex = this.settings['HARDWARE'].find(s => s.id === 'crt').selected;
+        let scanlines = document.querySelector('.scanlines');
+        if (scanlines) {
+            if (crtIndex === 0) scanlines.style.opacity = '0';   // OFF
+            if (crtIndex === 1) scanlines.style.opacity = '0.3'; // SUBTLE
+            if (crtIndex === 2) scanlines.style.opacity = '0.7'; // HEAVY
+        }
+
+        // 3. WIRE CPU CLOCK SPEED MULTIPLIER (For CPU execution loops)
+        let cpuIndex = this.settings['HARDWARE'].find(s => s.id === 'cpu').selected;
+        RAM.cpuMultiplier = (cpuIndex === 0) ? 1 : (cpuIndex === 1) ? 5 : 999; 
+        
+        // Reboot Message
         GPU.printLine("\nSAVING CMOS TO NVRAM...");
         GPU.printLine("REBOOTING SYSTEM...");
         GPU.printLine("READY.");

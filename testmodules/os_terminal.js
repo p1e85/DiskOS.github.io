@@ -1,6 +1,7 @@
 import { RAM } from './os_memory.js';
 import { GPU } from './os_display.js';
 import { CPU } from './os_cpu.js';
+import { BIOS } from './os_bios.js'; 
 
 export const CLI = {
     _lastAction: 0,
@@ -178,6 +179,7 @@ if (key === "Backspace" || key === "Enter") {
             else if (fwUpper === "SYS.MENU") {
                 if (typeof BIOS !== 'undefined') {
                     BIOS.toggle();
+                    RAM.cursorY--;
                 } else {
                     GPU.printLine("?SYS.MENU MODULE NOT LOADED");
                 }

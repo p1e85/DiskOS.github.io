@@ -261,13 +261,25 @@ export const STUDIO = {
         });
     },
 
-    toggle() {
+toggle(mode) {
         this.isOpen = !this.isOpen;
         this.overlay.style.display = this.isOpen ? "flex" : "none";
         
+        // Hide the old tab bar entirely
+        document.getElementById('tab-btn-sprite').parentElement.style.display = 'none';
+
         if (this.isOpen) {
             this.wasRunning = RAM.isRunning;
             RAM.isRunning = false; 
+            
+            // Force Mode Layout
+            if (mode === 'SPRITE') {
+                document.getElementById('tab-sprite').style.display = 'flex';
+                document.getElementById('tab-map').style.display = 'none';
+            } else if (mode === 'MAP') {
+                document.getElementById('tab-sprite').style.display = 'none';
+                document.getElementById('tab-map').style.display = 'flex';
+            }
         } else {
             if (this.wasRunning) RAM.isRunning = true; 
         }
