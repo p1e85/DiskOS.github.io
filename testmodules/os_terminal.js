@@ -6,17 +6,18 @@ import { BIOS } from './os_bios.js';
 export const CLI = {
     _lastAction: 0,
 
-    // V1.9 CART GENERATOR: Bundles Code + Sprites + Maps!
+    // V1.9 CART GENERATOR: Bundles Code + Sprites + Maps + SFX!
     _generatePayload(type = "CODE") {
         if (RAM.rawBuffer.length > 0) return RAM.rawBuffer.join('\n');
         
         let payload = `TYPE: disk${type}\nCOMPATIBILITY: V1.9\n---\n`;
         payload += RAM.textBuffer.map(t => `${t.line} ${t.code}`).join('\n');
         
-        // If saving a Cartridge, append the art data at the bottom!
+        // Append all the Cartridge art & audio data!
         if (type === "CART") {
             payload += `\n===SPRITES===\n${JSON.stringify(RAM.sprites || {})}`;
             payload += `\n===MAPS===\n${JSON.stringify(RAM.maps || {})}`;
+            payload += `\n===SFX===\n${JSON.stringify(RAM.sfx || {})}`; // <-- NEW: Audio Saved!
         }
         return payload;
     },
@@ -133,10 +134,9 @@ export const CLI = {
 
             if (menu === "FILE") {
                 if (action === "NEW") {
-                    RAM.textBuffer = []; RAM.variables = {}; RAM.sprites = {}; RAM.maps = {}; RAM.rawBuffer = []; RAM.customMenus = {};
+                    RAM.textBuffer = []; RAM.variables = {}; RAM.sprites = {}; RAM.maps = {}; RAM.sfx = {}; RAM.rawBuffer = []; RAM.customMenus = {};
                     GPU.setPadMode(false); GPU.resetTheme(); GPU.printLine("MEMORY CLEARED. THEME RESET.");
                 } else if (action === "SAVE" || action === "EXPORT") {
-                    // NEW DEFAULT: .diskCART instead of .diskCODE
                     let filename = parts[2] ? parts[2].replace(/"/g, "") : "UNTITLED.diskCART";
                     let ext = filename.split('.').pop().toUpperCase();
                     let payload = this._generatePayload(ext === "DISKCART" ? "CART" : "CODE");
@@ -206,7 +206,7 @@ export const CLI = {
                 GPU.printLine("READY."); RAM.cursorY--;
             } 
             else if (fwUpper === "NEW") {
-                RAM.textBuffer = []; RAM.variables = {}; RAM.sprites = {}; RAM.maps = {}; RAM.rawBuffer = []; RAM.customMenus = {};
+                RAM.textBuffer = []; RAM.variables = {}; RAM.sprites = {}; RAM.maps = {}; RAM.sfx = {}; RAM.rawBuffer = []; RAM.customMenus = {};
                 GPU.setPadMode(false); GPU.resetTheme(); GPU.printLine("MEMORY CLEARED. THEME RESET.\nREADY."); RAM.cursorY--;
             }
             else if (fwUpper === "SAVE" || fwUpper === "EXPORT") {
@@ -254,7 +254,7 @@ export const CLI = {
                     libContent.split('\n').forEach(line => {
                         line = line.replace(/[\u200B-\u200D\uFEFF]/g, '').trim();
                         if (line === "---" || line === "===CODE===") { isPayload = true; return; }
-                        if (line.startsWith("===")) { isPayload = false; return; } // Stop reading if we hit sprites/maps
+                        if (line.startsWith("===")) { isPayload = false; return; } 
                         if (isPayload && line !== "") {
                             let p = line.split(" "), lNum = parseInt(p[0]);
                             if (!isNaN(lNum)) RAM.textBuffer.push({ line: lNum, code: line.substring(p[0].length).trim() });
@@ -273,7 +273,7 @@ export const CLI = {
         }
     },
 
-    // V1.9 CART PARSER: Reads Code, Sprites, and Maps accurately!
+    // V1.9 CART PARSER: Reads Code, Sprites, Maps, and SFX accurately!
     processFileContent(fileContent, filename) {
         GPU.printLine(`LOADING ${filename}...`);
         let lines = fileContent.split('\n'), ext = filename.split('.').pop().toUpperCase();
@@ -292,6 +292,7 @@ export const CLI = {
         if (ext === "DISKCART") {
             RAM.sprites = {}; 
             RAM.maps = {};
+            RAM.sfx = {}; // <-- NEW: Clear audio banks on load
         }
 
         let mode = "HEADER"; 
@@ -303,6 +304,7 @@ export const CLI = {
             if (clean === "---" || clean === "===CODE===") { mode = "CODE"; return; }
             if (clean === "===SPRITES===") { mode = "SPRITES"; return; }
             if (clean === "===MAPS===") { mode = "MAPS"; return; }
+            if (clean === "===SFX===") { mode = "SFX"; return; } // <-- NEW: Listen for SFX block
             
             if (mode === "CODE" && clean !== "") {
                 let parts = clean.split(" "), lineNum = parseInt(parts[0]);
@@ -313,6 +315,9 @@ export const CLI = {
             }
             else if (mode === "MAPS" && clean !== "") {
                 try { RAM.maps = JSON.parse(clean); } catch(e) {}
+            }
+            else if (mode === "SFX" && clean !== "") {
+                try { RAM.sfx = JSON.parse(clean); } catch(e) {} // <-- NEW: Parse Audio JSON
             }
         });
         
