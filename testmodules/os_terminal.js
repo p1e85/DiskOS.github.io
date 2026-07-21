@@ -284,6 +284,29 @@ export const CLI = {
     },
 
     pasteFromClipboard(text) {
-        // [Existing Code] Same logic...
+        GPU.printLine("PASTING...");
+        let lines = text.replace(/[\u200B-\u200D\uFEFF]/g, '').split('\n'), linesAdded = 0;
+        if (RAM.isCapturingRaw) {
+            lines.forEach(line => {
+                line = line.trim();
+                if (line) { RAM.rawBuffer.push(line); GPU.printLine("> " + line.substring(0, RAM.cols - 3)); linesAdded++; }
+            });
+            GPU.printLine(`PASTED ${linesAdded} LINES TO RAW BUFFER.\nREADY.`);
+        } else {
+            lines.forEach(line => {
+                line = line.trim();
+                if (line) {
+                    let parts = line.split(" "), lineNum = parseInt(parts[0]);
+                    if (!isNaN(lineNum)) {
+                        let codeString = line.substring(parts[0].length).trim();
+                        let existing = RAM.textBuffer.find(item => item.line === lineNum);
+                        if (existing) existing.code = codeString;
+                        else RAM.textBuffer.push({ line: lineNum, code: codeString });
+                        linesAdded++;
+                    }
+                }
+            });
+            RAM.textBuffer.sort((a, b) => a.line - b.line); GPU.printLine(`PASTED ${linesAdded} LINES TO MEMORY.\nREADY.`);
+        }
     }
 };
