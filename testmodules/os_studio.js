@@ -6,7 +6,7 @@ export const STUDIO = {
     activeMode: 'SPRITE', bitMode: 8,           
     activeColor: 1, activeSprite: 0, activeMap: 0,         
     activeSfx: 0, 
-    activeMusic: 0, musicStamp: -1, // NEW: Music Engine States
+    activeMusic: 0, musicStamp: -1, 
     isDrawing: false,
 
     palette8: [
@@ -30,7 +30,7 @@ export const STUDIO = {
         if (!RAM.sprites) RAM.sprites = {};
         if (!RAM.maps) RAM.maps = {};
         if (!RAM.sfx) RAM.sfx = {}; 
-        if (!RAM.music) RAM.music = {}; // NEW: Music RAM Memory
+        if (!RAM.music) RAM.music = {}; 
     },
 
     toggle(targetMode = 'SPRITE') {
@@ -83,22 +83,22 @@ export const STUDIO = {
     },
 
     // ==========================================
-    // 1. SPRITE EDITOR LOGIC
+    // 1. SPRITE EDITOR
     // ==========================================
     buildSpriteEditor() {
         const gridRes = this.bitMode; 
         const colors = this.bitMode === 8 ? this.palette8 : this.generate256Palette();
         
         this.overlay.innerHTML = `
-            <div style="background: #111; border-bottom: 2px solid #333; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center;">
+            <div style="background: #111; border-bottom: 2px solid #333; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
                 <div style="color: #FFB000; font-weight: bold; font-size: 18px; letter-spacing: 1px;">■ SPRITE STUDIO</div>
                 <div style="display: flex; gap: 10px; background: #000; padding: 5px; border-radius: 4px; border: 1px solid #333;">
                     <div id="btn-8bit" style="padding: 5px 15px; cursor: pointer; background: ${this.bitMode === 8 ? '#FFB000' : 'transparent'}; color: ${this.bitMode === 8 ? '#000' : '#888'}; font-weight: bold;">8-BIT</div>
                     <div id="btn-16bit" style="padding: 5px 15px; cursor: pointer; background: ${this.bitMode === 16 ? '#FFB000' : 'transparent'}; color: ${this.bitMode === 16 ? '#000' : '#888'}; font-weight: bold;">16-BIT</div>
                 </div>
             </div>
-            <div style="display: flex; flex: 1; overflow: hidden; padding: 20px; gap: 20px;">
-                <div style="width: 250px; display: flex; flex-direction: column; gap: 20px;">
+            <div style="display: flex; flex: 1; overflow: hidden; padding: 20px; gap: 20px; min-height: 0;">
+                <div style="width: 250px; flex-shrink: 0; display: flex; flex-direction: column; gap: 20px; overflow-y: auto;">
                     <div style="background: #111; border: 2px solid #333; padding: 10px;">
                         <div style="margin-bottom: 10px; font-size: 12px; color: #888;">COLOR PALETTE</div>
                         <div id="palette-grid" style="display: grid; grid-template-columns: repeat(${this.bitMode === 8 ? 4 : 8}, 1fr); gap: 2px;">
@@ -108,10 +108,11 @@ export const STUDIO = {
                         </div>
                     </div>
                 </div>
-                <div style="flex: 1; display: flex; justify-content: center; align-items: center; background: #080808; border: 2px solid #333;">
-                    <canvas id="sprite-canvas" width="${gridRes * 20}" height="${gridRes * 20}" style="width: ${gridRes * 30}px; height: ${gridRes * 30}px; background: #1A1A1A; border: 1px solid #444; image-rendering: pixelated; cursor: crosshair; box-shadow: 0 0 20px rgba(0,0,0,0.5);"></canvas>
+                <!-- RESPONSIVE FIX: width 100%, max-width, height auto -->
+                <div style="flex: 1; display: flex; justify-content: center; align-items: center; background: #080808; border: 2px solid #333; min-width: 0;">
+                    <canvas id="sprite-canvas" width="${gridRes * 20}" height="${gridRes * 20}" style="width: 100%; max-width: 600px; aspect-ratio: 1; height: auto; background: #1A1A1A; border: 1px solid #444; image-rendering: pixelated; cursor: crosshair; box-shadow: 0 0 20px rgba(0,0,0,0.5);"></canvas>
                 </div>
-                <div style="width: 300px; display: flex; flex-direction: column; gap: 10px; background: #111; border: 2px solid #333; padding: 10px;">
+                <div style="width: 300px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; background: #111; border: 2px solid #333; padding: 10px;">
                     <div style="font-size: 12px; color: #888; display: flex; justify-content: space-between;">
                         <span>CARTRIDGE BANK</span><span style="color: #FFB000;">ID: ${this.activeSprite}</span>
                     </div>
@@ -134,8 +135,11 @@ export const STUDIO = {
         const paint = (e) => {
             if (!this.isDrawing) return;
             const rect = canvas.getBoundingClientRect();
-            const x = Math.floor(((e.clientX - rect.left) / (canvas.width / rect.width)) / 20);
-            const y = Math.floor(((e.clientY - rect.top) / (canvas.height / rect.height)) / 20);
+            // Mouse math properly accounts for responsive CSS scaling
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const x = Math.floor(((e.clientX - rect.left) * scaleX) / 20);
+            const y = Math.floor(((e.clientY - rect.top) * scaleY) / 20);
             
             if (x >= 0 && x < this.bitMode && y >= 0 && y < this.bitMode) {
                 if (!RAM.sprites[this.activeSprite]) RAM.sprites[this.activeSprite] = new Array(this.bitMode * this.bitMode).fill(0);
@@ -177,25 +181,26 @@ export const STUDIO = {
     },
 
     // ==========================================
-    // 2. MAP BUILDER LOGIC
+    // 2. MAP BUILDER
     // ==========================================
     buildMapEditor() {
         this.overlay.innerHTML = `
-            <div style="background: #111; border-bottom: 2px solid #333; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center;">
+            <div style="background: #111; border-bottom: 2px solid #333; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
                 <div style="color: #00E436; font-weight: bold; font-size: 18px; letter-spacing: 1px;">▦ MAP BUILDER</div>
                 <div style="color: #888; font-size: 12px;">16x16 TILE GRID</div>
             </div>
-            <div style="display: flex; flex: 1; overflow: hidden; padding: 20px; gap: 20px;">
-                <div style="width: 300px; display: flex; flex-direction: column; gap: 10px; background: #111; border: 2px solid #333; padding: 10px;">
+            <div style="display: flex; flex: 1; overflow: hidden; padding: 20px; gap: 20px; min-height: 0;">
+                <div style="width: 250px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; background: #111; border: 2px solid #333; padding: 10px;">
                     <div style="font-size: 12px; color: #888; display: flex; justify-content: space-between;">
                         <span>SPRITE STAMP</span><span style="color: #00E436;">ID: ${this.activeSprite}</span>
                     </div>
                     <div id="map-sprite-picker" style="display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; overflow-y: auto; flex: 1; padding-right: 5px;"></div>
                 </div>
-                <div style="flex: 1; display: flex; justify-content: center; align-items: center; background: #080808; border: 2px solid #333;">
-                    <canvas id="map-canvas" width="512" height="512" style="width: 512px; height: 512px; background: #1A1A1A; border: 1px solid #444; image-rendering: pixelated; cursor: crosshair; box-shadow: 0 0 20px rgba(0,0,0,0.5);"></canvas>
+                <!-- RESPONSIVE FIX: width 100%, max-width, height auto -->
+                <div style="flex: 1; display: flex; justify-content: center; align-items: center; background: #080808; border: 2px solid #333; min-width: 0;">
+                    <canvas id="map-canvas" width="512" height="512" style="width: 100%; max-width: 512px; aspect-ratio: 1; height: auto; background: #1A1A1A; border: 1px solid #444; image-rendering: pixelated; cursor: crosshair; box-shadow: 0 0 20px rgba(0,0,0,0.5);"></canvas>
                 </div>
-                <div style="width: 200px; display: flex; flex-direction: column; gap: 10px; background: #111; border: 2px solid #333; padding: 10px;">
+                <div style="width: 200px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; background: #111; border: 2px solid #333; padding: 10px;">
                     <div style="font-size: 12px; color: #888; display: flex; justify-content: space-between;">
                         <span>MAP SCREENS</span><span style="color: #00E436;">ID: ${this.activeMap}</span>
                     </div>
@@ -208,13 +213,15 @@ export const STUDIO = {
 
     attachMapEvents() {
         const canvas = document.getElementById('map-canvas');
-        const tileSize = 512 / 16; 
 
         const stamp = (e) => {
             if (!this.isDrawing) return;
             const rect = canvas.getBoundingClientRect();
-            const x = Math.floor((e.clientX - rect.left) / tileSize);
-            const y = Math.floor((e.clientY - rect.top) / tileSize);
+            // Mouse math properly accounts for responsive CSS scaling
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const x = Math.floor(((e.clientX - rect.left) * scaleX) / (512 / 16));
+            const y = Math.floor(((e.clientY - rect.top) * scaleY) / (512 / 16));
             
             if (x >= 0 && x < 16 && y >= 0 && y < 16) {
                 if (!RAM.maps[this.activeMap]) RAM.maps[this.activeMap] = new Array(256).fill(0);
@@ -276,23 +283,21 @@ export const STUDIO = {
         }
     },
 
-
     // ==========================================
-    // 3. SFX AUDIO ENGINE (Shared By SFX & Music)
+    // 3. SFX AUDIO ENGINE 
     // ==========================================
     _initSfxSlot() {
         if (!RAM.sfx[this.activeSfx]) RAM.sfx[this.activeSfx] = { wave: 'square', speed: 10, notes: new Array(32).fill(0) };
         return RAM.sfx[this.activeSfx];
     },
 
-    // The Master Async Audio Scheduler
     scheduleSfx(sfxId, startTime) {
         if (!RAM.sfx[sfxId]) return;
         const data = RAM.sfx[sfxId];
         if (!this.audioCtx) this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         
         const wave = data.wave || 'square';
-        const stepTime = 0.02 * data.speed; // Speed multiplier per note
+        const stepTime = 0.02 * data.speed; 
         
         for (let i = 0; i < 32; i++) {
             let pitch = data.notes[i];
@@ -317,18 +322,18 @@ export const STUDIO = {
 
     playSfx(sfxId) {
         if (!this.audioCtx) this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        this.scheduleSfx(sfxId, this.audioCtx.currentTime); // Schedule to play NOW
+        this.scheduleSfx(sfxId, this.audioCtx.currentTime); 
     },
 
     buildSfxEditor() {
         const sfxData = this._initSfxSlot();
         this.overlay.innerHTML = `
-            <div style="background: #111; border-bottom: 2px solid #333; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center;">
+            <div style="background: #111; border-bottom: 2px solid #333; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
                 <div style="color: #FF004D; font-weight: bold; font-size: 18px; letter-spacing: 1px;">♫ SFX TRACKER</div>
                 <div style="color: #888; font-size: 12px;">32-STEP SEQUENCER</div>
             </div>
-            <div style="display: flex; flex: 1; overflow: hidden; padding: 20px; gap: 20px;">
-                <div style="width: 250px; display: flex; flex-direction: column; gap: 20px;">
+            <div style="display: flex; flex: 1; overflow: hidden; padding: 20px; gap: 20px; min-height: 0;">
+                <div style="width: 250px; flex-shrink: 0; display: flex; flex-direction: column; gap: 20px; overflow-y: auto;">
                     <button id="btn-play-sfx" style="background: #FF004D; color: #FFF; font-weight: bold; font-size: 20px; padding: 15px; border: none; cursor: pointer; border-radius: 4px;">▶ PLAY SFX</button>
                     <div style="background: #111; border: 2px solid #333; padding: 10px;">
                         <div style="margin-bottom: 10px; font-size: 12px; color: #888;">WAVEFORM</div>
@@ -341,10 +346,11 @@ export const STUDIO = {
                         <input type="range" id="sfx-speed" min="1" max="20" value="${sfxData.speed}" style="width: 100%; accent-color: #FF004D;">
                     </div>
                 </div>
-                <div style="flex: 1; display: flex; justify-content: center; align-items: center; background: #080808; border: 2px solid #333;">
-                    <canvas id="sfx-canvas" width="512" height="512" style="width: 512px; height: 512px; background: #1A1A1A; border: 1px solid #444; cursor: crosshair; box-shadow: 0 0 20px rgba(0,0,0,0.5);"></canvas>
+                <!-- RESPONSIVE FIX: width 100%, max-width, height auto -->
+                <div style="flex: 1; display: flex; justify-content: center; align-items: center; background: #080808; border: 2px solid #333; min-width: 0;">
+                    <canvas id="sfx-canvas" width="512" height="512" style="width: 100%; max-width: 512px; aspect-ratio: 1; height: auto; background: #1A1A1A; border: 1px solid #444; cursor: crosshair; box-shadow: 0 0 20px rgba(0,0,0,0.5);"></canvas>
                 </div>
-                <div style="width: 200px; display: flex; flex-direction: column; gap: 10px; background: #111; border: 2px solid #333; padding: 10px;">
+                <div style="width: 200px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; background: #111; border: 2px solid #333; padding: 10px;">
                     <div style="font-size: 12px; color: #888; display: flex; justify-content: space-between;">
                         <span>SFX BANK</span><span style="color: #FF004D;">ID: ${this.activeSfx}</span>
                     </div>
@@ -365,8 +371,11 @@ export const STUDIO = {
         const drawNote = (e) => {
             if (!this.isDrawing) return;
             const rect = canvas.getBoundingClientRect();
-            const x = Math.floor((e.clientX - rect.left) / (512 / 32));
-            const y = Math.floor((e.clientY - rect.top) / (512 / 32));
+            // Mouse math properly accounts for responsive CSS scaling
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const x = Math.floor(((e.clientX - rect.left) * scaleX) / (512 / 32));
+            const y = Math.floor(((e.clientY - rect.top) * scaleY) / (512 / 32));
             if (x >= 0 && x < 32 && y >= 0 && y < 32) {
                 sfxData.notes[x] = (31 - y); 
                 this.renderSfxCanvas(); this.renderSfxBank();
@@ -422,12 +431,12 @@ export const STUDIO = {
 
 
     // ==========================================
-    // 4. MUSIC TRACKER LOGIC (NEW!)
+    // 4. MUSIC TRACKER LOGIC 
     // ==========================================
     _initMusicSlot() {
         if (!RAM.music[this.activeMusic]) {
             let rows = [];
-            for (let i=0; i<32; i++) rows.push([-1, -1, -1, -1]); // 32 rows, 4 empty channels (-1)
+            for (let i=0; i<32; i++) rows.push([-1, -1, -1, -1]); 
             RAM.music[this.activeMusic] = { speed: 8, rows: rows };
         }
         return RAM.music[this.activeMusic];
@@ -439,9 +448,8 @@ export const STUDIO = {
         
         let now = this.audioCtx.currentTime;
         let pattern = RAM.music[patternId];
-        let rowDuration = pattern.speed * 0.05; // Music Speed dictates gap between pattern rows
+        let rowDuration = pattern.speed * 0.05; 
         
-        // Loop down the grid and schedule all SFX for all 4 channels!
         for (let r=0; r<32; r++) {
             let rowTime = now + (r * rowDuration);
             for (let c=0; c<4; c++) {
@@ -457,15 +465,14 @@ export const STUDIO = {
         const musicData = this._initMusicSlot();
 
         this.overlay.innerHTML = `
-            <div style="background: #111; border-bottom: 2px solid #333; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center;">
+            <div style="background: #111; border-bottom: 2px solid #333; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
                 <div style="color: #29ADFF; font-weight: bold; font-size: 18px; letter-spacing: 1px;">♬ MUSIC TRACKER</div>
                 <div style="color: #888; font-size: 12px;">4-CHANNEL SEQUENCER</div>
             </div>
 
-            <div style="display: flex; flex: 1; overflow: hidden; padding: 20px; gap: 20px;">
+            <div style="display: flex; flex: 1; overflow: hidden; padding: 20px; gap: 20px; min-height: 0;">
                 
-                <!-- Left Sidebar: SFX Picker -->
-                <div style="width: 250px; display: flex; flex-direction: column; gap: 10px; background: #111; border: 2px solid #333; padding: 10px;">
+                <div style="width: 250px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; background: #111; border: 2px solid #333; padding: 10px;">
                     <div style="font-size: 12px; color: #888; display: flex; justify-content: space-between;">
                         <span>SFX STAMP</span><span style="color: #29ADFF;">ID: ${this.musicStamp >= 0 ? this.musicStamp : '--'}</span>
                     </div>
@@ -473,20 +480,19 @@ export const STUDIO = {
                     <div id="music-sfx-picker" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; overflow-y: auto; flex: 1; padding-right: 5px;"></div>
                 </div>
 
-                <!-- Center: The Tracker Grid -->
-                <div style="flex: 1; display: flex; flex-direction: column; background: #080808; border: 2px solid #333; padding: 10px;">
-                    <div style="display: flex; border-bottom: 2px solid #333; padding-bottom: 5px; margin-bottom: 5px; color: #888; font-size: 12px; font-weight: bold;">
+                <!-- RESPONSIVE FIX: min-width and min-height 0 to force flexbox scrolling properly -->
+                <div style="flex: 1; display: flex; flex-direction: column; background: #080808; border: 2px solid #333; padding: 10px; min-width: 0; min-height: 0;">
+                    <div style="display: flex; border-bottom: 2px solid #333; padding-bottom: 5px; margin-bottom: 5px; color: #888; font-size: 12px; font-weight: bold; flex-shrink: 0;">
                         <div style="width: 40px; text-align: center;">STEP</div>
                         <div style="flex: 1; text-align: center; color: #FF77A8;">CH 0</div>
                         <div style="flex: 1; text-align: center; color: #FFA300;">CH 1</div>
                         <div style="flex: 1; text-align: center; color: #00E436;">CH 2</div>
                         <div style="flex: 1; text-align: center; color: #29ADFF;">CH 3</div>
                     </div>
-                    <div id="music-grid" style="flex: 1; overflow-y: auto;"></div>
+                    <div id="music-grid" style="flex: 1; overflow-y: auto; min-height: 0;"></div>
                 </div>
 
-                <!-- Right Sidebar: Music Banks -->
-                <div style="width: 200px; display: flex; flex-direction: column; gap: 10px; background: #111; border: 2px solid #333; padding: 10px;">
+                <div style="width: 200px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; background: #111; border: 2px solid #333; padding: 10px;">
                     <button id="btn-play-music" style="background: #29ADFF; color: #000; font-weight: bold; font-size: 18px; padding: 15px; border: none; cursor: pointer; border-radius: 4px;">▶ PLAY PATTERN</button>
                     
                     <div style="background: #000; border: 1px solid #333; padding: 10px; margin-top: 10px;">
@@ -547,7 +553,7 @@ export const STUDIO = {
             el.onmousedown = (e) => {
                 let r = parseInt(e.target.dataset.r);
                 let c = parseInt(e.target.dataset.c);
-                pattern.rows[r][c] = this.musicStamp; // Stamp the selected SFX ID into the timeline!
+                pattern.rows[r][c] = this.musicStamp; 
                 this.renderMusicGrid(); 
             };
         });
@@ -557,7 +563,7 @@ export const STUDIO = {
         const bank = document.getElementById('music-bank');
         if (!bank) return;
         let html = '';
-        for (let i = 0; i < 16; i++) { // 16 Music Patterns
+        for (let i = 0; i < 16; i++) { 
             let isActive = i === this.activeMusic;
             let hasData = RAM.music[i] ? true : false;
             html += `<div class="music-screen-slot" data-idx="${i}" style="aspect-ratio: 1; background: ${isActive ? '#29ADFF' : hasData ? '#124' : '#000'}; border: 1px solid ${isActive ? '#FFF' : '#333'}; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; color: ${isActive ? '#000' : '#555'};">${i}</div>`;
