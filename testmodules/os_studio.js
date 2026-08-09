@@ -4,9 +4,10 @@ export const STUDIO = {
     isOpen: false, wasRunning: false,
     
     activeMode: 'SPRITE', bitMode: 8,           
+    activeSubView: 1, // NEW: 1=Canvas, 2=Palette/Tools, 3=Bank
+    
     activeColor: 1, activeSprite: 0, activeMap: 0,         
-    activeSfx: 0, 
-    activeMusic: 0, musicStamp: -1, 
+    activeSfx: 0, activeMusic: 0, musicStamp: -1, 
     isDrawing: false,
 
     palette8: [
@@ -31,6 +32,20 @@ export const STUDIO = {
         if (!RAM.maps) RAM.maps = {};
         if (!RAM.sfx) RAM.sfx = {}; 
         if (!RAM.music) RAM.music = {}; 
+        
+        if (!this.palette256) this.palette256 = this.generate256Palette();
+
+        // Global Mouse/Key listeners for the Studio
+        window.addEventListener('mouseup', () => { this.isDrawing = false; });
+        
+        window.addEventListener('keydown', (e) => {
+            if (!this.isOpen || e.target.tagName === 'INPUT') return;
+            if (['1', '2', '3'].includes(e.key)) {
+                e.preventDefault();
+                this.activeSubView = parseInt(e.key);
+                this.buildUI();
+            }
+        });
     },
 
     toggle(targetMode = 'SPRITE') {
@@ -39,6 +54,7 @@ export const STUDIO = {
         
         if (this.isOpen) {
             this.activeMode = targetMode;
+            this.activeSubView = 1; // Always reset to Canvas view on mode swap
             this.wasRunning = RAM.isRunning;
             RAM.isRunning = false; 
             this.buildUI();
@@ -69,7 +85,7 @@ export const STUDIO = {
         if (!spriteData) return; 
         const res = this.bitMode;
         const pixelSize = destSize / res;
-        const colors = this.bitMode === 8 ? this.palette8 : this.generate256Palette();
+        const colors = this.bitMode === 8 ? this.palette8 : this.palette256;
 
         for (let y = 0; y < res; y++) {
             for (let x = 0; x < res; x++) {
@@ -82,60 +98,82 @@ export const STUDIO = {
         }
     },
 
+    // UI Helper: Builds the shared navigation bar
+    buildTopBar(title, theme, t1, t2, t3) {
+        return `
+            <div style="background: #111; border-bottom: 2px solid #333; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
+                <div style="color: ${theme}; font-weight: bold; font-size: 20px; letter-spacing: 1px;">${title}</div>
+                <div style="display: flex; gap: 10px;">
+                    <div class="nav-tab" data-tab="1" style="padding: 8px 15px; cursor: pointer; background: ${this.activeSubView === 1 ? theme : '#000'}; color: ${this.activeSubView === 1 ? '#000' : '#888'}; border: 2px solid #333; border-radius: 6px; font-weight: bold;">[1] ${t1}</div>
+                    <div class="nav-tab" data-tab="2" style="padding: 8px 15px; cursor: pointer; background: ${this.activeSubView === 2 ? theme : '#000'}; color: ${this.activeSubView === 2 ? '#000' : '#888'}; border: 2px solid #333; border-radius: 6px; font-weight: bold;">[2] ${t2}</div>
+                    <div class="nav-tab" data-tab="3" style="padding: 8px 15px; cursor: pointer; background: ${this.activeSubView === 3 ? theme : '#000'}; color: ${this.activeSubView === 3 ? '#000' : '#888'}; border: 2px solid #333; border-radius: 6px; font-weight: bold;">[3] ${t3}</div>
+                </div>
+            </div>
+        `;
+    },
+
+    setupNav() {
+        document.querySelectorAll('.nav-tab').forEach(el => {
+            el.onclick = (e) => { this.activeSubView = parseInt(e.target.dataset.tab); this.buildUI(); };
+        });
+    },
+
     // ==========================================
     // 1. SPRITE EDITOR
     // ==========================================
     buildSpriteEditor() {
-        const gridRes = this.bitMode; 
-        const colors = this.bitMode === 8 ? this.palette8 : this.generate256Palette();
+        const theme = '#FFB000';
+        let html = this.buildTopBar('■ SPRITE STUDIO', theme, 'CANVAS', 'PALETTE', 'BANK');
         
-        this.overlay.innerHTML = `
-            <div style="background: #111; border-bottom: 2px solid #333; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
-                <div style="color: #FFB000; font-weight: bold; font-size: 18px; letter-spacing: 1px;">■ SPRITE STUDIO</div>
-                <div style="display: flex; gap: 10px; background: #000; padding: 5px; border-radius: 4px; border: 1px solid #333;">
-                    <div id="btn-8bit" style="padding: 5px 15px; cursor: pointer; background: ${this.bitMode === 8 ? '#FFB000' : 'transparent'}; color: ${this.bitMode === 8 ? '#000' : '#888'}; font-weight: bold;">8-BIT</div>
-                    <div id="btn-16bit" style="padding: 5px 15px; cursor: pointer; background: ${this.bitMode === 16 ? '#FFB000' : 'transparent'}; color: ${this.bitMode === 16 ? '#000' : '#888'}; font-weight: bold;">16-BIT</div>
+        html += `<div style="flex:1; overflow-y:auto; display:flex; flex-direction:column; padding:20px; align-items:center;">`;
+        
+        if (this.activeSubView === 1) {
+            let activeColorHex = this.bitMode === 8 ? this.palette8[this.activeColor] : this.palette256[this.activeColor];
+            html += `
+                <div style="margin-bottom:15px; color:#888; font-weight:bold; font-size:16px;">SPRITE ID: <span style="color:${theme}">${this.activeSprite}</span> &nbsp;|&nbsp; COLOR: <span style="display:inline-block;width:16px;height:16px;background:${activeColorHex};border:2px solid #FFF;vertical-align:middle;"></span></div>
+                <canvas id="sprite-canvas" width="${this.bitMode*20}" height="${this.bitMode*20}" style="width:100%; max-width:65vh; aspect-ratio:1; height:auto; background:#1A1A1A; border:2px solid #444; image-rendering:pixelated; cursor:crosshair; box-shadow:0 0 30px rgba(0,0,0,0.8);"></canvas>
+            `;
+        } 
+        else if (this.activeSubView === 2) {
+            html += `
+                <div style="font-size:24px; color:${theme}; margin-bottom: 20px; font-weight:bold; margin-top:20px;">ARCHITECTURE</div>
+                <div style="display:flex; gap:20px; margin-bottom: 50px;">
+                    <button id="btn-8bit" style="padding:15px 40px; font-size:18px; font-weight:bold; background:${this.bitMode===8?theme:'#222'}; color:${this.bitMode===8?'#000':'#888'}; border:2px solid #333; cursor:pointer; border-radius:8px;">8-BIT (16 COLORS)</button>
+                    <button id="btn-16bit" style="padding:15px 40px; font-size:18px; font-weight:bold; background:${this.bitMode===16?theme:'#222'}; color:${this.bitMode===16?'#000':'#888'}; border:2px solid #333; cursor:pointer; border-radius:8px;">16-BIT (256 COLORS)</button>
                 </div>
-            </div>
-            <div style="display: flex; flex: 1; overflow: hidden; padding: 20px; gap: 20px; min-height: 0;">
-                <div style="width: 250px; flex-shrink: 0; display: flex; flex-direction: column; gap: 20px; overflow-y: auto;">
-                    <div style="background: #111; border: 2px solid #333; padding: 10px;">
-                        <div style="margin-bottom: 10px; font-size: 12px; color: #888;">COLOR PALETTE</div>
-                        <div id="palette-grid" style="display: grid; grid-template-columns: repeat(${this.bitMode === 8 ? 4 : 8}, 1fr); gap: 2px;">
-                            ${colors.map((hex, i) => `
-                                <div class="palette-swatch" data-idx="${i}" style="aspect-ratio: 1; background: ${hex}; cursor: pointer; border: 2px solid ${this.activeColor === i ? '#FFF' : '#000'};"></div>
-                            `).join('')}
-                        </div>
-                    </div>
-                </div>
-                <!-- RESPONSIVE FIX: width 100%, max-width, height auto -->
-                <div style="flex: 1; display: flex; justify-content: center; align-items: center; background: #080808; border: 2px solid #333; min-width: 0;">
-                    <canvas id="sprite-canvas" width="${gridRes * 20}" height="${gridRes * 20}" style="width: 100%; max-width: 600px; aspect-ratio: 1; height: auto; background: #1A1A1A; border: 1px solid #444; image-rendering: pixelated; cursor: crosshair; box-shadow: 0 0 20px rgba(0,0,0,0.5);"></canvas>
-                </div>
-                <div style="width: 300px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; background: #111; border: 2px solid #333; padding: 10px;">
-                    <div style="font-size: 12px; color: #888; display: flex; justify-content: space-between;">
-                        <span>CARTRIDGE BANK</span><span style="color: #FFB000;">ID: ${this.activeSprite}</span>
-                    </div>
-                    <div id="sprite-bank" style="display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; overflow-y: auto; flex: 1; padding-right: 5px;"></div>
-                </div>
-            </div>
-        `;
-        this.attachSpriteEvents(); this.renderSpriteBank(); this.renderSpriteCanvas();
+                <div style="font-size:24px; color:${theme}; margin-bottom: 20px; font-weight:bold;">ACTIVE PALETTE</div>
+                <div id="palette-grid" style="display:grid; grid-template-columns:repeat(16, 1fr); gap:5px; width:100%; max-width:800px;"></div>
+            `;
+        } 
+        else if (this.activeSubView === 3) {
+            html += `
+                <div style="font-size:24px; color:${theme}; margin-bottom: 30px; font-weight:bold; margin-top:20px;">CARTRIDGE BANK (256 SLOTS)</div>
+                <div id="sprite-bank" style="display:grid; grid-template-columns:repeat(16, 1fr); gap:4px; width:100%; max-width: 900px; padding-bottom:40px;"></div>
+            `;
+        }
+        
+        html += `</div>`;
+        this.overlay.innerHTML = html;
+        this.setupNav();
+
+        if (this.activeSubView === 1) {
+            this.attachSpriteCanvasEvents();
+            this.renderSpriteCanvas();
+        } else if (this.activeSubView === 2) {
+            document.getElementById('btn-8bit').onclick = () => { this.bitMode = 8; this.buildUI(); };
+            document.getElementById('btn-16bit').onclick = () => { this.bitMode = 16; this.buildUI(); };
+            this.renderSpritePalette();
+        } else if (this.activeSubView === 3) {
+            this.renderSpriteBank();
+        }
     },
 
-    attachSpriteEvents() {
-        document.getElementById('btn-8bit').onclick = () => { this.bitMode = 8; this.buildUI(); };
-        document.getElementById('btn-16bit').onclick = () => { this.bitMode = 16; this.buildUI(); };
-
-        document.querySelectorAll('.palette-swatch').forEach(el => {
-            el.onclick = (e) => { this.activeColor = parseInt(e.target.dataset.idx); this.buildUI(); };
-        });
-
+    attachSpriteCanvasEvents() {
         const canvas = document.getElementById('sprite-canvas');
+        if(!canvas) return;
         const paint = (e) => {
             if (!this.isDrawing) return;
             const rect = canvas.getBoundingClientRect();
-            // Mouse math properly accounts for responsive CSS scaling
             const scaleX = canvas.width / rect.width;
             const scaleY = canvas.height / rect.height;
             const x = Math.floor(((e.clientX - rect.left) * scaleX) / 20);
@@ -144,12 +182,10 @@ export const STUDIO = {
             if (x >= 0 && x < this.bitMode && y >= 0 && y < this.bitMode) {
                 if (!RAM.sprites[this.activeSprite]) RAM.sprites[this.activeSprite] = new Array(this.bitMode * this.bitMode).fill(0);
                 RAM.sprites[this.activeSprite][y * this.bitMode + x] = this.activeColor;
-                this.renderSpriteCanvas(); this.renderSpriteBank(); 
+                this.renderSpriteCanvas(); 
             }
         };
-
         canvas.addEventListener('mousedown', (e) => { this.isDrawing = true; paint(e); });
-        window.addEventListener('mouseup', () => { this.isDrawing = false; });
         canvas.addEventListener('mousemove', paint);
     },
 
@@ -167,57 +203,73 @@ export const STUDIO = {
         this.drawSpriteToCtx(ctx, this.activeSprite, 0, 0, this.bitMode * 20);
     },
 
+    renderSpritePalette() {
+        const grid = document.getElementById('palette-grid');
+        const colors = this.bitMode === 8 ? this.palette8 : this.palette256;
+        let html = '';
+        colors.forEach((hex, i) => {
+            html += `<div class="palette-swatch" data-idx="${i}" style="aspect-ratio: 1; background: ${hex}; cursor: pointer; border: 2px solid ${this.activeColor === i ? '#FFF' : '#000'}; border-radius:2px;"></div>`;
+        });
+        grid.innerHTML = html;
+        document.querySelectorAll('.palette-swatch').forEach(el => { el.onclick = (e) => { this.activeColor = parseInt(e.target.dataset.idx); this.buildUI(); }; });
+    },
+
     renderSpriteBank() {
         const bank = document.getElementById('sprite-bank');
-        if (!bank) return;
         let html = '';
         for (let i = 0; i < 256; i++) {
             let isActive = i === this.activeSprite;
             let hasData = RAM.sprites[i] ? true : false;
-            html += `<div class="sprite-slot" data-idx="${i}" style="aspect-ratio: 1; background: ${isActive ? '#FFB000' : hasData ? '#222' : '#000'}; border: 1px solid ${isActive ? '#FFF' : '#333'}; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 8px; color: ${isActive ? '#000' : '#555'};">${i}</div>`;
+            html += `<div class="sprite-slot" data-idx="${i}" style="aspect-ratio: 1; background: ${isActive ? '#FFB000' : hasData ? '#222' : '#000'}; border: 2px solid ${isActive ? '#FFF' : '#333'}; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight:bold; color: ${isActive ? '#000' : '#888'}; border-radius:4px;">${i}</div>`;
         }
         bank.innerHTML = html;
-        document.querySelectorAll('.sprite-slot').forEach(el => { el.onclick = (e) => { this.activeSprite = parseInt(e.target.dataset.idx); this.buildUI(); }; });
+        document.querySelectorAll('.sprite-slot').forEach(el => { el.onclick = (e) => { this.activeSprite = parseInt(e.target.dataset.idx); this.activeSubView = 1; this.buildUI(); }; });
     },
 
     // ==========================================
     // 2. MAP BUILDER
     // ==========================================
     buildMapEditor() {
-        this.overlay.innerHTML = `
-            <div style="background: #111; border-bottom: 2px solid #333; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
-                <div style="color: #00E436; font-weight: bold; font-size: 18px; letter-spacing: 1px;">▦ MAP BUILDER</div>
-                <div style="color: #888; font-size: 12px;">16x16 TILE GRID</div>
-            </div>
-            <div style="display: flex; flex: 1; overflow: hidden; padding: 20px; gap: 20px; min-height: 0;">
-                <div style="width: 250px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; background: #111; border: 2px solid #333; padding: 10px;">
-                    <div style="font-size: 12px; color: #888; display: flex; justify-content: space-between;">
-                        <span>SPRITE STAMP</span><span style="color: #00E436;">ID: ${this.activeSprite}</span>
-                    </div>
-                    <div id="map-sprite-picker" style="display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; overflow-y: auto; flex: 1; padding-right: 5px;"></div>
-                </div>
-                <!-- RESPONSIVE FIX: width 100%, max-width, height auto -->
-                <div style="flex: 1; display: flex; justify-content: center; align-items: center; background: #080808; border: 2px solid #333; min-width: 0;">
-                    <canvas id="map-canvas" width="512" height="512" style="width: 100%; max-width: 512px; aspect-ratio: 1; height: auto; background: #1A1A1A; border: 1px solid #444; image-rendering: pixelated; cursor: crosshair; box-shadow: 0 0 20px rgba(0,0,0,0.5);"></canvas>
-                </div>
-                <div style="width: 200px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; background: #111; border: 2px solid #333; padding: 10px;">
-                    <div style="font-size: 12px; color: #888; display: flex; justify-content: space-between;">
-                        <span>MAP SCREENS</span><span style="color: #00E436;">ID: ${this.activeMap}</span>
-                    </div>
-                    <div id="map-bank" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; overflow-y: auto; flex: 1; padding-right: 5px;"></div>
-                </div>
-            </div>
-        `;
-        this.attachMapEvents(); this.renderMapSpritePicker(); this.renderMapBank(); this.renderMapCanvas();
+        const theme = '#00E436';
+        let html = this.buildTopBar('▦ MAP BUILDER', theme, 'CANVAS', 'STAMPS', 'SCREENS');
+        
+        html += `<div style="flex:1; overflow-y:auto; display:flex; flex-direction:column; padding:20px; align-items:center;">`;
+        
+        if (this.activeSubView === 1) {
+            html += `
+                <div style="margin-bottom:15px; color:#888; font-weight:bold; font-size:16px;">MAP ID: <span style="color:${theme}">${this.activeMap}</span> &nbsp;|&nbsp; STAMP: <span style="color:${theme}">${this.activeSprite}</span></div>
+                <canvas id="map-canvas" width="512" height="512" style="width:100%; max-width:65vh; aspect-ratio:1; height:auto; background:#1A1A1A; border:2px solid #444; image-rendering:pixelated; cursor:crosshair; box-shadow:0 0 30px rgba(0,0,0,0.8);"></canvas>
+            `;
+        } 
+        else if (this.activeSubView === 2) {
+            html += `
+                <div style="font-size:24px; color:${theme}; margin-bottom: 10px; font-weight:bold; margin-top:20px;">SELECT STAMP (256 SPRITES)</div>
+                <div style="margin-bottom: 30px; color:#888;">Note: Slot 0 acts as a transparent eraser.</div>
+                <div id="map-sprite-picker" style="display:grid; grid-template-columns:repeat(16, 1fr); gap:4px; width:100%; max-width:900px;"></div>
+            `;
+        } 
+        else if (this.activeSubView === 3) {
+            html += `
+                <div style="font-size:24px; color:${theme}; margin-bottom: 30px; font-weight:bold; margin-top:20px;">MAP SCREENS (64 BANKS)</div>
+                <div id="map-bank" style="display:grid; grid-template-columns:repeat(8, 1fr); gap:8px; width:100%; max-width:700px;"></div>
+            `;
+        }
+        
+        html += `</div>`;
+        this.overlay.innerHTML = html;
+        this.setupNav();
+
+        if (this.activeSubView === 1) { this.attachMapCanvasEvents(); this.renderMapCanvas(); }
+        else if (this.activeSubView === 2) this.renderMapSpritePicker();
+        else if (this.activeSubView === 3) this.renderMapBank();
     },
 
-    attachMapEvents() {
+    attachMapCanvasEvents() {
         const canvas = document.getElementById('map-canvas');
-
+        if(!canvas) return;
         const stamp = (e) => {
             if (!this.isDrawing) return;
             const rect = canvas.getBoundingClientRect();
-            // Mouse math properly accounts for responsive CSS scaling
             const scaleX = canvas.width / rect.width;
             const scaleY = canvas.height / rect.height;
             const x = Math.floor(((e.clientX - rect.left) * scaleX) / (512 / 16));
@@ -227,40 +279,12 @@ export const STUDIO = {
                 if (!RAM.maps[this.activeMap]) RAM.maps[this.activeMap] = new Array(256).fill(0);
                 if (RAM.maps[this.activeMap][y * 16 + x] !== this.activeSprite) {
                     RAM.maps[this.activeMap][y * 16 + x] = this.activeSprite;
-                    this.renderMapCanvas(); this.renderMapBank();   
+                    this.renderMapCanvas();   
                 }
             }
         };
-
         canvas.addEventListener('mousedown', (e) => { this.isDrawing = true; stamp(e); });
-        window.addEventListener('mouseup', () => { this.isDrawing = false; });
         canvas.addEventListener('mousemove', stamp);
-    },
-
-    renderMapSpritePicker() {
-        const picker = document.getElementById('map-sprite-picker');
-        if (!picker) return;
-        let html = '';
-        for (let i = 0; i < 256; i++) {
-            let isActive = i === this.activeSprite;
-            let hasData = RAM.sprites[i] ? true : false;
-            html += `<div class="map-stamp-slot" data-idx="${i}" style="aspect-ratio: 1; background: ${isActive ? '#00E436' : hasData ? '#222' : '#000'}; border: 1px solid ${isActive ? '#FFF' : '#333'}; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 8px; color: ${isActive ? '#000' : '#555'};">${i}</div>`;
-        }
-        picker.innerHTML = html;
-        document.querySelectorAll('.map-stamp-slot').forEach(el => { el.onclick = (e) => { this.activeSprite = parseInt(e.target.dataset.idx); this.buildUI(); }; });
-    },
-
-    renderMapBank() {
-        const bank = document.getElementById('map-bank');
-        if (!bank) return;
-        let html = '';
-        for (let i = 0; i < 64; i++) {
-            let isActive = i === this.activeMap;
-            let hasData = RAM.maps[i] ? true : false;
-            html += `<div class="map-screen-slot" data-idx="${i}" style="aspect-ratio: 1; background: ${isActive ? '#00E436' : hasData ? '#222' : '#000'}; border: 1px solid ${isActive ? '#FFF' : '#333'}; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; color: ${isActive ? '#000' : '#555'};">${i}</div>`;
-        }
-        bank.innerHTML = html;
-        document.querySelectorAll('.map-screen-slot').forEach(el => { el.onclick = (e) => { this.activeMap = parseInt(e.target.dataset.idx); this.buildUI(); }; });
     },
 
     renderMapCanvas() {
@@ -281,6 +305,30 @@ export const STUDIO = {
                 if (spriteId && spriteId > 0) this.drawSpriteToCtx(ctx, spriteId, x * tileSize, y * tileSize, tileSize);
             }
         }
+    },
+
+    renderMapSpritePicker() {
+        const picker = document.getElementById('map-sprite-picker');
+        let html = '';
+        for (let i = 0; i < 256; i++) {
+            let isActive = i === this.activeSprite;
+            let hasData = RAM.sprites[i] ? true : false;
+            html += `<div class="map-stamp-slot" data-idx="${i}" style="aspect-ratio: 1; background: ${isActive ? '#00E436' : hasData ? '#222' : '#000'}; border: 2px solid ${isActive ? '#FFF' : '#333'}; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight:bold; color: ${isActive ? '#000' : '#888'}; border-radius:4px;">${i}</div>`;
+        }
+        picker.innerHTML = html;
+        document.querySelectorAll('.map-stamp-slot').forEach(el => { el.onclick = (e) => { this.activeSprite = parseInt(e.target.dataset.idx); this.activeSubView = 1; this.buildUI(); }; });
+    },
+
+    renderMapBank() {
+        const bank = document.getElementById('map-bank');
+        let html = '';
+        for (let i = 0; i < 64; i++) {
+            let isActive = i === this.activeMap;
+            let hasData = RAM.maps[i] ? true : false;
+            html += `<div class="map-screen-slot" data-idx="${i}" style="aspect-ratio: 1; background: ${isActive ? '#00E436' : hasData ? '#222' : '#000'}; border: 2px solid ${isActive ? '#FFF' : '#333'}; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; color: ${isActive ? '#000' : '#888'}; border-radius:6px;">${i}</div>`;
+        }
+        bank.innerHTML = html;
+        document.querySelectorAll('.map-screen-slot').forEach(el => { el.onclick = (e) => { this.activeMap = parseInt(e.target.dataset.idx); this.activeSubView = 1; this.buildUI(); }; });
     },
 
     // ==========================================
@@ -306,16 +354,13 @@ export const STUDIO = {
                 let gain = this.audioCtx.createGain();
                 osc.type = wave;
                 osc.frequency.value = 130.81 * Math.pow(2, (pitch - 1) / 12);
-                
-                osc.connect(gain);
-                gain.connect(this.audioCtx.destination);
+                osc.connect(gain); gain.connect(this.audioCtx.destination);
                 
                 let noteTime = startTime + (i * stepTime);
                 gain.gain.setValueAtTime(0.15, noteTime);
                 gain.gain.exponentialRampToValueAtTime(0.01, noteTime + (stepTime * 0.9));
                 
-                osc.start(noteTime);
-                osc.stop(noteTime + stepTime);
+                osc.start(noteTime); osc.stop(noteTime + stepTime);
             }
         }
     },
@@ -326,64 +371,75 @@ export const STUDIO = {
     },
 
     buildSfxEditor() {
+        const theme = '#FF004D';
         const sfxData = this._initSfxSlot();
-        this.overlay.innerHTML = `
-            <div style="background: #111; border-bottom: 2px solid #333; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
-                <div style="color: #FF004D; font-weight: bold; font-size: 18px; letter-spacing: 1px;">♫ SFX TRACKER</div>
-                <div style="color: #888; font-size: 12px;">32-STEP SEQUENCER</div>
-            </div>
-            <div style="display: flex; flex: 1; overflow: hidden; padding: 20px; gap: 20px; min-height: 0;">
-                <div style="width: 250px; flex-shrink: 0; display: flex; flex-direction: column; gap: 20px; overflow-y: auto;">
-                    <button id="btn-play-sfx" style="background: #FF004D; color: #FFF; font-weight: bold; font-size: 20px; padding: 15px; border: none; cursor: pointer; border-radius: 4px;">▶ PLAY SFX</button>
-                    <div style="background: #111; border: 2px solid #333; padding: 10px;">
-                        <div style="margin-bottom: 10px; font-size: 12px; color: #888;">WAVEFORM</div>
-                        <div style="display: flex; flex-direction: column; gap: 5px;">
-                            ${['square', 'sawtooth', 'triangle'].map(wave => `<div class="wave-btn" data-wave="${wave}" style="background: ${sfxData.wave === wave ? '#FF004D' : '#000'}; color: ${sfxData.wave === wave ? '#FFF' : '#888'}; padding: 8px; text-align: center; cursor: pointer; border: 1px solid #333;">${wave.toUpperCase()}</div>`).join('')}
-                        </div>
-                    </div>
-                    <div style="background: #111; border: 2px solid #333; padding: 10px;">
-                        <div style="margin-bottom: 10px; font-size: 12px; color: #888;">SPEED (1=FAST, 20=SLOW)</div>
-                        <input type="range" id="sfx-speed" min="1" max="20" value="${sfxData.speed}" style="width: 100%; accent-color: #FF004D;">
-                    </div>
+        let html = this.buildTopBar('♫ SFX TRACKER', theme, 'SEQUENCE', 'SYNTH', 'BANK');
+        
+        html += `<div style="flex:1; overflow-y:auto; display:flex; flex-direction:column; padding:20px; align-items:center;">`;
+        
+        if (this.activeSubView === 1) {
+            html += `
+                <div style="margin-bottom:15px; color:#888; font-weight:bold; font-size:16px;">SFX ID: <span style="color:${theme}">${this.activeSfx}</span></div>
+                <canvas id="sfx-canvas" width="512" height="512" style="width:100%; max-width:65vh; aspect-ratio:1; height:auto; background:#1A1A1A; border:2px solid #444; cursor:crosshair; box-shadow:0 0 30px rgba(0,0,0,0.8); margin-bottom:20px;"></canvas>
+                <button id="btn-play-sfx" style="background:${theme}; color:#FFF; font-weight:bold; font-size:24px; padding:15px 50px; border:none; cursor:pointer; border-radius:8px; box-shadow:0 5px 15px rgba(255,0,77,0.4);">▶ PLAY SOUND</button>
+            `;
+        } 
+        else if (this.activeSubView === 2) {
+            html += `
+                <div style="font-size:24px; color:${theme}; margin-bottom: 20px; font-weight:bold; margin-top:20px;">WAVEFORM</div>
+                <div style="display:flex; gap:20px; margin-bottom: 50px;">
+                    ${['square', 'sawtooth', 'triangle'].map(wave => `
+                        <button class="wave-btn" data-wave="${wave}" style="padding:15px 40px; font-size:18px; font-weight:bold; background:${sfxData.wave === wave ? theme : '#222'}; color:${sfxData.wave === wave ? '#FFF' : '#888'}; border:2px solid #333; cursor:pointer; border-radius:8px;">${wave.toUpperCase()}</button>
+                    `).join('')}
                 </div>
-                <!-- RESPONSIVE FIX: width 100%, max-width, height auto -->
-                <div style="flex: 1; display: flex; justify-content: center; align-items: center; background: #080808; border: 2px solid #333; min-width: 0;">
-                    <canvas id="sfx-canvas" width="512" height="512" style="width: 100%; max-width: 512px; aspect-ratio: 1; height: auto; background: #1A1A1A; border: 1px solid #444; cursor: crosshair; box-shadow: 0 0 20px rgba(0,0,0,0.5);"></canvas>
-                </div>
-                <div style="width: 200px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; background: #111; border: 2px solid #333; padding: 10px;">
-                    <div style="font-size: 12px; color: #888; display: flex; justify-content: space-between;">
-                        <span>SFX BANK</span><span style="color: #FF004D;">ID: ${this.activeSfx}</span>
-                    </div>
-                    <div id="sfx-bank" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; overflow-y: auto; flex: 1; padding-right: 5px;"></div>
-                </div>
-            </div>
-        `;
-        this.attachSfxEvents(); this.renderSfxBank(); this.renderSfxCanvas();
+                <div style="font-size:24px; color:${theme}; margin-bottom: 20px; font-weight:bold;">PLAYBACK SPEED</div>
+                <div style="color:#888; margin-bottom:20px;">1 = FAST (Chiptune) | 20 = SLOW (Atmospheric)</div>
+                <input type="range" id="sfx-speed" min="1" max="20" value="${sfxData.speed}" style="width: 100%; max-width: 600px; accent-color: ${theme};">
+                <div style="margin-top:20px; font-size: 32px; color: ${theme}; font-weight: bold;" id="sfx-speed-val">${sfxData.speed}</div>
+            `;
+        } 
+        else if (this.activeSubView === 3) {
+            html += `
+                <div style="font-size:24px; color:${theme}; margin-bottom: 30px; font-weight:bold; margin-top:20px;">SFX BANK (64 SLOTS)</div>
+                <div id="sfx-bank" style="display:grid; grid-template-columns:repeat(8, 1fr); gap:8px; width:100%; max-width: 700px;"></div>
+            `;
+        }
+        
+        html += `</div>`;
+        this.overlay.innerHTML = html;
+        this.setupNav();
+
+        if (this.activeSubView === 1) {
+            this.attachSfxCanvasEvents(); this.renderSfxCanvas();
+            document.getElementById('btn-play-sfx').onclick = () => this.playSfx(this.activeSfx);
+        } else if (this.activeSubView === 2) {
+            document.querySelectorAll('.wave-btn').forEach(el => { el.onclick = (e) => { sfxData.wave = e.target.dataset.wave; this.buildUI(); }; });
+            document.getElementById('sfx-speed').oninput = (e) => { 
+                sfxData.speed = parseInt(e.target.value); 
+                document.getElementById('sfx-speed-val').innerText = sfxData.speed; 
+            };
+        } else if (this.activeSubView === 3) {
+            this.renderSfxBank();
+        }
     },
 
-    attachSfxEvents() {
-        const sfxData = this._initSfxSlot();
-        document.getElementById('btn-play-sfx').onclick = () => this.playSfx(this.activeSfx);
-        document.querySelectorAll('.wave-btn').forEach(el => { el.onclick = (e) => { sfxData.wave = e.target.dataset.wave; this.buildUI(); }; });
-        document.getElementById('sfx-speed').oninput = (e) => { sfxData.speed = parseInt(e.target.value); };
-
+    attachSfxCanvasEvents() {
         const canvas = document.getElementById('sfx-canvas');
+        if(!canvas) return;
         const drawNote = (e) => {
             if (!this.isDrawing) return;
             const rect = canvas.getBoundingClientRect();
-            // Mouse math properly accounts for responsive CSS scaling
             const scaleX = canvas.width / rect.width;
             const scaleY = canvas.height / rect.height;
             const x = Math.floor(((e.clientX - rect.left) * scaleX) / (512 / 32));
             const y = Math.floor(((e.clientY - rect.top) * scaleY) / (512 / 32));
             if (x >= 0 && x < 32 && y >= 0 && y < 32) {
+                const sfxData = this._initSfxSlot();
                 sfxData.notes[x] = (31 - y); 
-                this.renderSfxCanvas(); this.renderSfxBank();
+                this.renderSfxCanvas();
             }
         };
-
         canvas.addEventListener('mousedown', (e) => { this.isDrawing = true; drawNote(e); });
-        window.addEventListener('mouseup', () => { this.isDrawing = false; });
         canvas.addEventListener('mousemove', drawNote);
     },
 
@@ -418,15 +474,14 @@ export const STUDIO = {
 
     renderSfxBank() {
         const bank = document.getElementById('sfx-bank');
-        if (!bank) return;
         let html = '';
         for (let i = 0; i < 64; i++) {
             let isActive = i === this.activeSfx;
             let hasData = RAM.sfx[i] && RAM.sfx[i].notes.some(n => n > 0);
-            html += `<div class="sfx-slot" data-idx="${i}" style="aspect-ratio: 1; background: ${isActive ? '#FF004D' : hasData ? '#311' : '#000'}; border: 1px solid ${isActive ? '#FFF' : '#333'}; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; color: ${isActive ? '#FFF' : '#555'};">${i}</div>`;
+            html += `<div class="sfx-slot" data-idx="${i}" style="aspect-ratio: 1; background: ${isActive ? '#FF004D' : hasData ? '#311' : '#000'}; border: 2px solid ${isActive ? '#FFF' : '#333'}; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; color: ${isActive ? '#FFF' : '#888'}; border-radius:6px;">${i}</div>`;
         }
         bank.innerHTML = html;
-        document.querySelectorAll('.sfx-slot').forEach(el => { el.onclick = (e) => { this.activeSfx = parseInt(e.target.dataset.idx); this.buildUI(); }; });
+        document.querySelectorAll('.sfx-slot').forEach(el => { el.onclick = (e) => { this.activeSfx = parseInt(e.target.dataset.idx); this.activeSubView = 1; this.buildUI(); }; });
     },
 
 
@@ -462,88 +517,91 @@ export const STUDIO = {
     },
 
     buildMusicEditor() {
+        const theme = '#29ADFF';
         const musicData = this._initMusicSlot();
-
-        this.overlay.innerHTML = `
-            <div style="background: #111; border-bottom: 2px solid #333; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
-                <div style="color: #29ADFF; font-weight: bold; font-size: 18px; letter-spacing: 1px;">♬ MUSIC TRACKER</div>
-                <div style="color: #888; font-size: 12px;">4-CHANNEL SEQUENCER</div>
-            </div>
-
-            <div style="display: flex; flex: 1; overflow: hidden; padding: 20px; gap: 20px; min-height: 0;">
+        let html = this.buildTopBar('♬ MUSIC TRACKER', theme, 'TRACKER', 'STAMPS', 'BANK');
+        
+        html += `<div style="flex:1; overflow-y:auto; display:flex; flex-direction:column; padding:20px; align-items:center;">`;
+        
+        if (this.activeSubView === 1) {
+            html += `
+                <div style="margin-bottom:15px; color:#888; font-weight:bold; font-size:16px;">PATTERN ID: <span style="color:${theme}">${this.activeMusic}</span> &nbsp;|&nbsp; STAMP: <span style="color:${theme}">${this.musicStamp >= 0 ? this.musicStamp : '--'}</span></div>
                 
-                <div style="width: 250px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; background: #111; border: 2px solid #333; padding: 10px;">
-                    <div style="font-size: 12px; color: #888; display: flex; justify-content: space-between;">
-                        <span>SFX STAMP</span><span style="color: #29ADFF;">ID: ${this.musicStamp >= 0 ? this.musicStamp : '--'}</span>
-                    </div>
-                    <div style="font-size: 10px; color: #555; text-align: center; margin-bottom: 5px;">CLICK [--] TO ERASE</div>
-                    <div id="music-sfx-picker" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; overflow-y: auto; flex: 1; padding-right: 5px;"></div>
+                <div style="width: 100%; max-width: 600px; display: flex; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 10px; color: #888; font-size: 16px; font-weight: bold;">
+                    <div style="width: 60px; text-align: center;">STEP</div>
+                    <div style="flex: 1; text-align: center; color: #FF77A8;">CH 0</div>
+                    <div style="flex: 1; text-align: center; color: #FFA300;">CH 1</div>
+                    <div style="flex: 1; text-align: center; color: #00E436;">CH 2</div>
+                    <div style="flex: 1; text-align: center; color: #29ADFF;">CH 3</div>
                 </div>
+                
+                <div id="music-grid" style="width: 100%; max-width: 600px; flex: 1; overflow-y: auto; background:#080808; border:2px solid #333; padding:10px; margin-bottom:20px;"></div>
+                
+                <button id="btn-play-music" style="background:${theme}; color:#000; font-weight:bold; font-size:24px; padding:15px 50px; border:none; cursor:pointer; border-radius:8px; box-shadow:0 5px 15px rgba(41,173,255,0.4);">▶ PLAY PATTERN</button>
+            `;
+        } 
+        else if (this.activeSubView === 2) {
+            html += `
+                <div style="font-size:24px; color:${theme}; margin-bottom: 10px; font-weight:bold; margin-top:20px;">SELECT SFX STAMP</div>
+                <div style="margin-bottom: 30px; color:#888;">Select an audio stamp to place on the tracker grid. Click [--] to erase.</div>
+                <div id="music-sfx-picker" style="display:grid; grid-template-columns:repeat(8, 1fr); gap:8px; width:100%; max-width:700px;"></div>
+            `;
+        } 
+        else if (this.activeSubView === 3) {
+            html += `
+                <div style="font-size:24px; color:${theme}; margin-bottom: 20px; font-weight:bold; margin-top:20px;">GLOBAL BPM / SPEED</div>
+                <input type="range" id="music-speed" min="1" max="20" value="${musicData.speed}" style="width: 100%; max-width: 600px; accent-color: ${theme};">
+                <div style="margin-top:20px; font-size: 32px; color: ${theme}; font-weight: bold;" id="music-speed-val">${musicData.speed}</div>
+                
+                <div style="font-size:24px; color:${theme}; margin-bottom: 30px; font-weight:bold; margin-top:50px;">MUSIC BANK (16 PATTERNS)</div>
+                <div id="music-bank" style="display:grid; grid-template-columns:repeat(8, 1fr); gap:8px; width:100%; max-width:700px;"></div>
+            `;
+        }
+        
+        html += `</div>`;
+        this.overlay.innerHTML = html;
+        this.setupNav();
 
-                <!-- RESPONSIVE FIX: min-width and min-height 0 to force flexbox scrolling properly -->
-                <div style="flex: 1; display: flex; flex-direction: column; background: #080808; border: 2px solid #333; padding: 10px; min-width: 0; min-height: 0;">
-                    <div style="display: flex; border-bottom: 2px solid #333; padding-bottom: 5px; margin-bottom: 5px; color: #888; font-size: 12px; font-weight: bold; flex-shrink: 0;">
-                        <div style="width: 40px; text-align: center;">STEP</div>
-                        <div style="flex: 1; text-align: center; color: #FF77A8;">CH 0</div>
-                        <div style="flex: 1; text-align: center; color: #FFA300;">CH 1</div>
-                        <div style="flex: 1; text-align: center; color: #00E436;">CH 2</div>
-                        <div style="flex: 1; text-align: center; color: #29ADFF;">CH 3</div>
-                    </div>
-                    <div id="music-grid" style="flex: 1; overflow-y: auto; min-height: 0;"></div>
-                </div>
-
-                <div style="width: 200px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; background: #111; border: 2px solid #333; padding: 10px;">
-                    <button id="btn-play-music" style="background: #29ADFF; color: #000; font-weight: bold; font-size: 18px; padding: 15px; border: none; cursor: pointer; border-radius: 4px;">▶ PLAY PATTERN</button>
-                    
-                    <div style="background: #000; border: 1px solid #333; padding: 10px; margin-top: 10px;">
-                        <div style="margin-bottom: 10px; font-size: 12px; color: #888;">BPM / SPEED (1-20)</div>
-                        <input type="range" id="music-speed" min="1" max="20" value="${musicData.speed}" style="width: 100%; accent-color: #29ADFF;">
-                    </div>
-
-                    <div style="font-size: 12px; color: #888; display: flex; justify-content: space-between; margin-top: 10px;">
-                        <span>MUSIC BANK</span><span style="color: #29ADFF;">ID: ${this.activeMusic}</span>
-                    </div>
-                    <div id="music-bank" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; overflow-y: auto; flex: 1; padding-right: 5px;"></div>
-                </div>
-            </div>
-        `;
-
-        document.getElementById('btn-play-music').onclick = () => this.playPattern(this.activeMusic);
-        document.getElementById('music-speed').oninput = (e) => { musicData.speed = parseInt(e.target.value); };
-
-        this.renderMusicPicker();
-        this.renderMusicBank();
-        this.renderMusicGrid();
+        if (this.activeSubView === 1) {
+            this.renderMusicGrid();
+            document.getElementById('btn-play-music').onclick = () => this.playPattern(this.activeMusic);
+        } else if (this.activeSubView === 2) {
+            this.renderMusicPicker();
+        } else if (this.activeSubView === 3) {
+            this.renderMusicBank();
+            document.getElementById('music-speed').oninput = (e) => { 
+                musicData.speed = parseInt(e.target.value); 
+                document.getElementById('music-speed-val').innerText = musicData.speed; 
+            };
+        }
     },
 
     renderMusicPicker() {
         const picker = document.getElementById('music-sfx-picker');
-        if (!picker) return;
-        let html = `<div class="music-stamp-slot" data-idx="-1" style="aspect-ratio: 1; background: ${this.musicStamp === -1 ? '#29ADFF' : '#222'}; border: 1px solid ${this.musicStamp === -1 ? '#FFF' : '#333'}; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; color: ${this.musicStamp === -1 ? '#000' : '#888'};">--</div>`;
+        let html = `<div class="music-stamp-slot" data-idx="-1" style="aspect-ratio: 1; background: ${this.musicStamp === -1 ? '#29ADFF' : '#222'}; border: 2px solid ${this.musicStamp === -1 ? '#FFF' : '#333'}; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: bold; color: ${this.musicStamp === -1 ? '#000' : '#888'}; border-radius:6px;">--</div>`;
         for (let i = 0; i < 64; i++) {
             let isActive = i === this.musicStamp;
             let hasData = RAM.sfx[i] && RAM.sfx[i].notes.some(n => n > 0);
-            html += `<div class="music-stamp-slot" data-idx="${i}" style="aspect-ratio: 1; background: ${isActive ? '#29ADFF' : hasData ? '#124' : '#000'}; border: 1px solid ${isActive ? '#FFF' : '#333'}; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 10px; color: ${isActive ? '#000' : '#555'};">${i}</div>`;
+            html += `<div class="music-stamp-slot" data-idx="${i}" style="aspect-ratio: 1; background: ${isActive ? '#29ADFF' : hasData ? '#124' : '#000'}; border: 2px solid ${isActive ? '#FFF' : '#333'}; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight:bold; color: ${isActive ? '#000' : '#888'}; border-radius:6px;">${i}</div>`;
         }
         picker.innerHTML = html;
-        document.querySelectorAll('.music-stamp-slot').forEach(el => { el.onclick = (e) => { this.musicStamp = parseInt(e.target.dataset.idx); this.buildUI(); }; });
+        document.querySelectorAll('.music-stamp-slot').forEach(el => { el.onclick = (e) => { this.musicStamp = parseInt(e.target.dataset.idx); this.activeSubView = 1; this.buildUI(); }; });
     },
 
     renderMusicGrid() {
         const grid = document.getElementById('music-grid');
-        if (!grid) return;
         const pattern = this._initMusicSlot();
         let html = '';
 
         for (let r=0; r<32; r++) {
-            html += `<div style="display:flex; margin-bottom: 2px; height: 24px;">
-                <div style="width:40px; color:#555; text-align:center; line-height: 24px;">${String(r).padStart(2,'0')}</div>`;
+            html += `<div style="display:flex; margin-bottom: 6px; height: 32px;">
+                <div style="width:60px; color:#555; text-align:center; line-height: 32px; font-size:16px;">${String(r).padStart(2,'0')}</div>`;
             for (let c=0; c<4; c++) {
                 let sfx = pattern.rows[r][c];
                 let text = sfx >= 0 ? String(sfx).padStart(2,'0') : '--';
                 let color = sfx >= 0 ? '#FFF' : '#333';
                 let bg = sfx >= 0 ? '#124' : '#0A0A0A';
-                html += `<div class="music-cell" data-r="${r}" data-c="${c}" style="flex: 1; text-align: center; background: ${bg}; color: ${color}; cursor: pointer; border: 1px solid #222; margin: 0 2px; line-height: 22px; font-weight: bold;">${text}</div>`;
+                html += `<div class="music-cell" data-r="${r}" data-c="${c}" style="flex: 1; text-align: center; background: ${bg}; color: ${color}; cursor: pointer; border: 2px solid #222; margin: 0 4px; line-height: 28px; font-size:16px; font-weight: bold; border-radius:4px;">${text}</div>`;
             }
             html += `</div>`;
         }
@@ -561,14 +619,13 @@ export const STUDIO = {
 
     renderMusicBank() {
         const bank = document.getElementById('music-bank');
-        if (!bank) return;
         let html = '';
         for (let i = 0; i < 16; i++) { 
             let isActive = i === this.activeMusic;
             let hasData = RAM.music[i] ? true : false;
-            html += `<div class="music-screen-slot" data-idx="${i}" style="aspect-ratio: 1; background: ${isActive ? '#29ADFF' : hasData ? '#124' : '#000'}; border: 1px solid ${isActive ? '#FFF' : '#333'}; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: bold; color: ${isActive ? '#000' : '#555'};">${i}</div>`;
+            html += `<div class="music-screen-slot" data-idx="${i}" style="aspect-ratio: 1; background: ${isActive ? '#29ADFF' : hasData ? '#124' : '#000'}; border: 2px solid ${isActive ? '#FFF' : '#333'}; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: bold; color: ${isActive ? '#000' : '#888'}; border-radius:6px;">${i}</div>`;
         }
         bank.innerHTML = html;
-        document.querySelectorAll('.music-screen-slot').forEach(el => { el.onclick = (e) => { this.activeMusic = parseInt(e.target.dataset.idx); this.buildUI(); }; });
+        document.querySelectorAll('.music-screen-slot').forEach(el => { el.onclick = (e) => { this.activeMusic = parseInt(e.target.dataset.idx); this.activeSubView = 1; this.buildUI(); }; });
     }
 };
