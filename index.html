@@ -13,8 +13,8 @@
         
         <!-- HERO SECTION -->
         <section class="hero">
-            <h1>DiskOS V1.8</h1>
-            <h2>A BROWSER-BASED RETRO OPERATING SYSTEM & GAME ENGINE BY P1 CREATIONS</h2>
+            <h1>DiskOS V1.9</h1>
+            <h2>A BROWSER-BASED FANTASY CONSOLE & GAME ENGINE BY P1 CREATIONS</h2>
             <div>
                 <a href="diskos-beta.html" class="btn-launch">Launch OS</a>
                 <a href="https://github.com/p1e85/DiskOS.github.io" target="_blank" class="btn-github">Read Docs on GitHub</a>
@@ -24,20 +24,20 @@
         <!-- FEATURES SECTION -->
         <section class="features">
             <div class="card">
-                <h3>.diskCODE</h3>
-                <p>Write standard BASIC-style syntax directly in the browser terminal. Build logic, handle variables, draw sprites, and synthesize audio with zero external tools.</p>
+                <h3>The Studio Suite (ESC)</h3>
+                <p>Press <strong>ESC</strong> at any time to pause the engine and access the built-in development suite. Use hotkeys (1, 2, 3) to seamlessly swap between the Sprite Editor, Level Map Builder, SFX Synthesizer, and 4-Channel Music Tracker.</p>
             </div>
             <div class="card">
-                <h3>.diskGUI Theming</h3>
-                <p>DiskOS isn't locked into amber and black. Inject CSS-like scripts to instantly flip the OS colors, typography, CRT scanlines, and build custom terminal menus.</p>
+                <h3>.diskCART Cartridges</h3>
+                <p>Games are no longer just code. Save your entire project—including your custom sprites, maps, and audio patterns—into a single, highly portable <strong>.diskCART</strong> payload right to your local storage.</p>
             </div>
             <div class="card">
-                <h3>.diskPAD Controllers</h3>
-                <p>Building a mobile game? Compile pre-built D-Pads or design entirely custom touch-buttons that automatically map to your code's keyboard logic.</p>
+                <h3>Strict Game Scripting</h3>
+                <p>A modernized, robust scripting engine. Define strict variables (<code>INT</code>, <code>STRING</code>, <code>ARRAY</code>) and build complex game logic using multi-line <code>IF/ELSE</code> blocks, <code>SWITCH</code> statements, and <code>WHILE</code> loops.</p>
             </div>
             <div class="card">
-                <h3>Virtual File System</h3>
-                <p>Save code, themes, and gamepads directly to your browser's local storage. Mount virtual directories or download a compiled `.diskROM` cartridge to share.</p>
+                <h3>.diskGUI & .diskPAD</h3>
+                <p>Inject CSS-like scripts to instantly flip the OS colors, typography, and CRT scanlines. Compiling a mobile game? Design custom touch-buttons that automatically map to your code's keyboard logic.</p>
             </div>
         </section>
 
@@ -45,21 +45,30 @@
         <section class="howto">
             <div class="howto-content">
                 <div class="howto-text">
-                    <h2>Boot Up & Build</h2>
-                    <p>DiskOS boots instantly. Everything happens inside the command line. You can write your code line-by-line, or type <strong>----</strong> to enter Raw Mode for pasting large scripts.</p>
+                    <h2>The V1.9 Workflow</h2>
+                    <p>DiskOS is a fully self-contained ecosystem. You build the art, the music, and the code all in the same browser window.</p>
+                    <ul style="color: #bbb; line-height: 1.6; padding-left: 20px; margin-top: 15px;">
+                        <li><strong>>_ TERMINAL:</strong> Write your game logic and save your files.</li>
+                        <li><strong>■ SPRITES:</strong> Press <code>1</code> for Canvas, <code>2</code> for Palette, <code>3</code> for Cartridge Bank.</li>
+                        <li><strong>▦ MAPS:</strong> Paint your levels using your saved sprites on a 16x16 grid.</li>
+                        <li><strong>♫ SFX:</strong> Synthesize retro sound effects using a 32-step tracker.</li>
+                        <li><strong>♬ MUSIC:</strong> Arrange your SFX across 4 audio channels.</li>
+                    </ul>
                     <br>
-                    <p>Ready to see it in action? Launch the OS, type the code in the terminal window, and press Enter to see it run.</p>
+                    <p>Ready to build? Launch the OS, type the code below into the terminal, and press <strong>Enter</strong> to see it run at a smooth 60 FPS.</p>
                 </div>
                 
                 <div class="terminal-window">
-                    <div class="terminal-header">SYS_MEM: DEMO_BOOT.diskCODE</div>
-                    <div><span class="cmd">10</span> CLEAR_SCR</div>
-                    <div><span class="cmd">20</span> PRINT "HELLO WORLD"</div>
-                    <div><span class="cmd">30</span> DRAW_BOX 10 10 20 5 BLUE</div>
-                    <div><span class="cmd">40</span> BEEP 440 200</div>
+                    <div class="terminal-header">SYS_MEM: DEMO_GAME.diskCART</div>
+                    <div><span class="cmd">10</span> INT PX = 10</div>
+                    <div><span class="cmd">20</span> INT PY = 10</div>
+                    <div><span class="cmd">100</span> CLEAR_SCR</div>
+                    <div><span class="cmd">110</span> IF BTN_RIGHT THEN PX = PX + 1</div>
+                    <div><span class="cmd">120</span> SPRITE 1 PX PY</div>
+                    <div><span class="cmd">130</span> WAIT 16</div>
+                    <div><span class="cmd">140</span> GOTO 100</div>
                     <br>
                     <div><span class="cmd">RUN</span></div>
-                    <div><span class="output">HELLO WORLD</span></div>
                     <div><span class="comment">READY.</span></div>
                     <div><span class="cmd">_</span></div>
                 </div>
