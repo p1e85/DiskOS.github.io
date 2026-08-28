@@ -28,7 +28,7 @@ export const GPU = {
         }));
         RAM.cursorX = RAM.cursorY = 0;
         this.setPadMode(false); 
-        this.printLine("*** DiskOS V1.8 ***\n1024K VIRTUAL DISK MOUNTED\nREADY.");
+        this.printLine("*** DiskOS V1.9 ***\n1024K VIRTUAL DISK MOUNTED\nREADY.");
     },
 
     // ==========================================
